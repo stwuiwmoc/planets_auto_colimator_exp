@@ -146,6 +146,8 @@ if __name__ == '__main__':
     m1_radi = 1850/2
     stick_angle = 22.5 # アルミ棒のx軸に対する角度deg
     edge_length = 40 # フチから斜め鏡までの距離
+    # fem では0.05Nm のトルク、実物の+-500は板バネ+-5mm相当、ばね定数5.78N/mm、腕の長さ0.25m
+    fem2act = (5*2) *  5.78 * 0.25 / 0.05
     
     x_arr = y_arr = np.linspace(-m1_radi, m1_radi, px)
     xx, yy = np.meshgrid(x_arr, y_arr)
@@ -162,7 +164,7 @@ if __name__ == '__main__':
     dfxx = read(fname)
     diff = tf * kriging(df0, dfxx)
     
-    diff_rotate = rotation(diff, stick_angle, tf) 
+    diff_rotate = rotation(diff, stick_angle, tf) * fem2act
     stick_line = diff_rotate[128, :]
     
     y_c, tilt_c, idx_c = tangent_line(x_arr, stick_line, m1_radi)
@@ -174,17 +176,19 @@ if __name__ == '__main__':
     
     
     ## for plot ------------------------------------------------------------
-    text = ["tilt_center = " + str(tilt_c.round(9)) + " [deg]",
+    text = ["tilt_center = " + str(tilt_c.round(6)) + " [deg]",
             "zwopx_center = " + str(zwopx_c.round(5)) + "[px]",
-            "tilt_edge = " + str(tilt_e.round(9)) + " [deg]",
+            "tilt_edge = " + str(tilt_e.round(6)) + " [deg]",
             "zwopx_edge = " + str(zwopx_e.round(5)) + " [px]",
             ]
-    title_diff = "act " + act_num + " ( "+ act_dict[act_num] + " in FEM model)"
+    title_diff = act_dict[act_num] + " in FEM model"
+    title_rotate = "act" + act_num[1:] + " ( FEM x " + str(fem2act) + " ), " + str(stick_angle)+" deg"
+    
     fig = plt.figure(figsize=(10,10))
     gs = fig.add_gridspec(2,2)
     
     ax_diff = corr.image_plot(fig, title_diff, gs[0,0], diff, diff, 0, 100, "mm")
-    ax_rotate = corr.image_plot(fig, str(stick_angle)+" deg", gs[0,1], diff_rotate, diff, 0, 100, "mm")
+    ax_rotate = corr.image_plot(fig, title_rotate, gs[0,1], diff_rotate, diff_rotate, 0, 100, "mm")
     ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
     #ax_table = table_plot(fig, "", gs[1,0], table_list, column_list, row_list)
     ax_text = text_plot(fig, "", gs[1,0], text)
