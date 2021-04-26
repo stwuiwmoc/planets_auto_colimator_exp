@@ -11,6 +11,7 @@ import scipy as sp
 import glob
 import scipy.signal
 import sys
+import pandas as pd
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -73,8 +74,8 @@ def displace(X, param):
     std : float
         ずらす前後の差分についての標準偏差
     """
-    dx = X[0].round()
-    dy = X[1].round()
+    dx = round(X[0])
+    dy = round(X[1])
     data = param[0]
     magnification = param[1]
     dlim = param[2]
@@ -91,7 +92,7 @@ def displace(X, param):
     cut_0 = data_0[s0x, s0y]
     cut_1 = data_1[s1x, s1y]
     diff = cut_1 - cut_0
-    return diff
+    return diff#, s1x, s1y, data_0, data_1, s0x, s0y
 
 def std_func(X, param):
     """
@@ -110,12 +111,19 @@ def std_func(X, param):
         ずらす前後の差分についての標準偏差
     """
     diff = displace(X, param)
-    std = diff.std()
+    std = np.std(diff)
     return std
         
 def argmax2d(ndim_array):
     idx = np.unravel_index(np.argmax(ndim_array), ndim_array.shape)
     return idx, str(idx)
+
+def res2title(res):
+    res_x, res_y = res["x"]/10
+    str_x = str(round(res_x, 2))
+    str_y = str(round(res_y, 2))
+    title = r"( $\Delta$horizontal, $\Delta$vartical ) = ( " + str_y + " , " + str_x + " ) [px]"
+    return title
 
 def image_plot(fig, title, position, c, c_scale, min_per, max_per, cbar_title):
     cmap1 = cm.jet
@@ -143,64 +151,73 @@ if __name__ == '__main__':
     px_v, px_h = 384, 512
     px_old = 150 # 切り出すpx幅
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
-    px_lim = int(10*mgn)
+    px_lim = int(30*mgn)
 
-    data_mean = []
-    data_limb = []
-    data_center = []
+    act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
+    #act_list = ["17"]
+    df_cols = ["act", "dvert_l", "dhori_l", "dvert_c", "dhori_c"]
+    df_res = pd.DataFrame(index=[], columns=df_cols)
     
-    
-    for i in range(0, 2):
-        path = "raw_data/210421/ex05_act11_" + name[i] + "/*.FIT"
+    for act_num in act_list:
+        print(act_num)
+        data_mean = []
+        data_limb = []
+        data_center = []
         
-        path_list = glob.glob(path)
+        for i in range(0, 2):
+            folder_path = "raw_data/210423/ex10_act" + act_num + "_" + name[i] + "/*.FIT"
+            
+            path_list = glob.glob(folder_path)
+            
+            if len(path_list) == 0: # globで何もマッチしなかったときに終了する
+                print("path_list is empty!")
+                sys.exit()
+            
+            data_mean_temp = np.empty((px_v, px_h))
+            
+            for path in path_list:
+                data = fits_2darray(path)
+                data_mean_temp = data + data_mean_temp
+            
+            data_mean_temp = data_mean_temp / len(path_list)
+            
+            data_mean.append(data_mean_temp)
+            data_limb.append(data_mean_temp[100:100+px_old, 250:250+px_old])
+            data_center.append(data_mean_temp[100:100+px_old, 0:0+px_old])
+            
+        ## interpolate ---------------------------------------------------------------  
+        ip_limb = [fits_interpolate(data_limb[0], mgn), fits_interpolate(data_limb[1], mgn)]
+        ip_center = [fits_interpolate(data_center[0], mgn), fits_interpolate(data_center[1], mgn)]
         
-        if len(path_list) == 0: # globで何もマッチしなかったときに終了する
-            print("path_list is empty!")
-            sys.exit()
+        data_diff = data_mean[1] - data_mean[0]
         
-        data_mean_temp = np.empty((px_v, px_h))
+        ## minimize ----------------------------------------------------------------
+        param_limb = [ip_limb, mgn, px_lim]
+        res_limb = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_limb,), method="Powell")
+        diff_limb = displace(res_limb["x"], param_limb)
         
-        for path in path_list:
-            data = fits_2darray(path)
-            data_mean_temp = data + data_mean_temp
+        param_center = [ip_center, mgn, px_lim]
+        res_center = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_center,), method="Powell")
+        diff_center = displace(res_center["x"], param_center)
+        ## for plot --------------------------------------------------------------
+        fig = plt.figure(figsize=(10,15))
+        gs = fig.add_gridspec(4, 2)
         
-        data_mean_temp = data_mean_temp / len(path_list)
+        ax_diff = image_plot(fig, path[16:26], gs[0, 0:2], data_diff, data_diff, 0, 100, "")
+        ax_limb_0 = image_plot(fig, name[0]+argmax2d(data_limb[0])[1], gs[1, 1], data_limb[0], data_limb[0], 0, 100, "")
+        ax_limb_1 = image_plot(fig, name[1]+argmax2d(data_limb[1])[1], gs[2, 1], data_limb[1], data_limb[0], 0, 100, "")
+        ax_center_0 = image_plot(fig, name[0]+argmax2d(data_center[0])[1], gs[1, 0], data_center[0], data_limb[0], 0, 100, "")
+        ax_center_1 = image_plot(fig, name[1]+argmax2d(data_center[1])[1], gs[2, 0], data_center[1], data_limb[0], 0, 100, "")
+        ax_res_limb = image_plot(fig, res2title(res_limb), gs[3, 1], diff_limb, diff_limb, 0, 100, "")
+        ax_res_center = image_plot(fig, res2title(res_center), gs[3, 0], diff_center, diff_center, 0, 100, "")
         
-        data_mean.append(data_mean_temp)
-        data_limb.append(data_mean_temp[125:125+px_old, 275:275+px_old])
-        data_center.append(data_mean_temp[100:100+px_old, 0:0+px_old])
         
-    ## interpolate ---------------------------------------------------------------  
-    ip_limb = [fits_interpolate(data_limb[0], mgn), fits_interpolate(data_limb[1], mgn)]
-    ip_center = [fits_interpolate(data_center[0], mgn), fits_interpolate(data_center[1], mgn)]
+        fig.tight_layout()
+        
+        picname = mkfolder("/"+folder_path[9:15]) + folder_path[16:26] + "_" + name[0] + "_" + name[1] + ".png"
+        fig.savefig(picname)
+        
+        record = pd.Series([act_num, res_limb["x"][1]/10, res_limb["x"][0]/10, res_center["x"][1]/10, res_center["x"][0]/10], index=df_res.columns)        
+        df_res = df_res.append(record, ignore_index=True)
     
-    data_diff = data_mean[1] - data_mean[0]
-    
-    ## minimize ----------------------------------------------------------------
-    param_limb = [ip_limb, mgn, px_lim]
-    res_limb = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_limb,), method="Powell")
-    diff_limb = displace(res_limb["x"], param_limb)
-    
-    param_center = [ip_center, mgn, px_lim]
-    res_center = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_center,), method="Powell")
-    diff_center = displace(res_center["x"], param_center)
-    
-    ## for plot --------------------------------------------------------------
-    fig = plt.figure(figsize=(10,15))
-    gs = fig.add_gridspec(4, 2)
-    
-    ax_diff = image_plot(fig, path[16:26], gs[0, 0:2], data_diff, data_diff, 0, 100, "")
-    ax_limb_0 = image_plot(fig, name[0]+argmax2d(data_limb[0])[1], gs[1, 1], data_limb[0], data_limb[0], 0, 100, "")
-    ax_limb_1 = image_plot(fig, name[1]+argmax2d(data_limb[1])[1], gs[2, 1], data_limb[1], data_limb[0], 0, 100, "")
-    ax_center_0 = image_plot(fig, name[0]+argmax2d(data_center[0])[1], gs[1, 0], data_center[0], data_limb[0], 0, 100, "")
-    ax_center_1 = image_plot(fig, name[1]+argmax2d(data_center[1])[1], gs[2, 0], data_center[1], data_limb[0], 0, 100, "")
-    ax_res_limb = image_plot(fig, str(res_limb["x"]), gs[3, 1], diff_limb, diff_limb, 0, 100, "")
-    ax_res_center = image_plot(fig, str(res_center["x"]), gs[3, 0], diff_center, diff_center, 0, 100, "")
-    
-    
-    fig.tight_layout()
-    
-    picname = mkfolder("/"+path[9:15]) + path[16:26] + "_" + name[0][:2] + "_" + name[1][:2] + ".png"
-    fig.savefig(picname)
-    
+    df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")
