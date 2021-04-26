@@ -55,8 +55,64 @@ def fits_interpolate(array_2d, magnification):
     x_new = y_new = np.linspace(0, range_max, range_max*magnification)
     xx_new, yy_new = np.meshgrid(x_new, y_new)
     zz_new = sp.interpolate.griddata(xy_old, z_old, (xx_new, yy_new), "cubic")
-    return zz_new    
+    return zz_new
+
+def displace(X, param):
+    """
+    X = (dx, dy) で与えられたpx分 data_1 をずらし、差分とって標準偏差を計算
+
+    Parameters
+    ----------
+    X : tuple (dx, dy)
+        ずらすpx数を指定
+    param : TYPE
+        list [data_list, magnification, dlim]
+
+    Returns
+    -------
+    std : float
+        ずらす前後の差分についての標準偏差
+    """
+    dx = X[0].round()
+    dy = X[1].round()
+    data = param[0]
+    magnification = param[1]
+    dlim = param[2]
     
+    data_0 = data[0]
+    data_1 = data[1]
+    
+    ## ずらした部分にnp.nanが入らないように、ずらす最大値の分だけ周りを切り取る
+    s0x = s0y = slice( int(dlim), int(len(data_0)-(dlim+magnification)) )
+    ## dx, dyずらす を dx, dyずらして切り出す で対応
+    s1x = slice( int(dlim+dx), int(len(data_0)+dx-(dlim+magnification)) )
+    s1y = slice( int(dlim+dy), int(len(data_0)+dy-(dlim+magnification)) )
+    
+    cut_0 = data_0[s0x, s0y]
+    cut_1 = data_1[s1x, s1y]
+    diff = cut_1 - cut_0
+    return diff
+
+def std_func(X, param):
+    """
+    X = (dx, dy) で与えられたpx分 data_1 をずらし、差分とって標準偏差を計算
+
+    Parameters
+    ----------
+    X : tuple (dx, dy)
+        ずらすpx数を指定
+    param : TYPE
+        list [data_list, magnification, dlim]
+
+    Returns
+    -------
+    std : float
+        ずらす前後の差分についての標準偏差
+    """
+    diff = displace(X, param)
+    std = diff.std()
+    return std
+        
 def argmax2d(ndim_array):
     idx = np.unravel_index(np.argmax(ndim_array), ndim_array.shape)
     return idx, str(idx)
@@ -85,7 +141,9 @@ if __name__ == '__main__':
     
     name = ["-500", "+500"]
     px_v, px_h = 384, 512
+    px_old = 150 # 切り出すpx幅
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
+    px_lim = int(10*mgn)
 
     data_mean = []
     data_limb = []
@@ -93,7 +151,7 @@ if __name__ == '__main__':
     
     
     for i in range(0, 2):
-        path = "raw_data/210421/ex04_act09_" + name[i] + "/*.FIT"
+        path = "raw_data/210421/ex05_act11_" + name[i] + "/*.FIT"
         
         path_list = glob.glob(path)
         
@@ -110,8 +168,8 @@ if __name__ == '__main__':
         data_mean_temp = data_mean_temp / len(path_list)
         
         data_mean.append(data_mean_temp)
-        data_limb.append(data_mean_temp[125:275, 275:425])
-        data_center.append(data_mean_temp[100:300, 0:200])
+        data_limb.append(data_mean_temp[125:125+px_old, 275:275+px_old])
+        data_center.append(data_mean_temp[100:100+px_old, 0:0+px_old])
         
     ## interpolate ---------------------------------------------------------------  
     ip_limb = [fits_interpolate(data_limb[0], mgn), fits_interpolate(data_limb[1], mgn)]
@@ -119,27 +177,30 @@ if __name__ == '__main__':
     
     data_diff = data_mean[1] - data_mean[0]
     
+    ## minimize ----------------------------------------------------------------
+    param_limb = [ip_limb, mgn, px_lim]
+    res_limb = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_limb,), method="Powell")
+    diff_limb = displace(res_limb["x"], param_limb)
     
-    """
-    ## correlate func --------------------------------------------------------
-    corr_limb = scipy.signal.correlate2d(data_limb[0]-data_limb[0].mean(), data_limb[1]-data_limb[1].mean())
-    corr_limb = corr_limb[100:300, 100:300]
-    corr_center = scipy.signal.correlate2d(data_center[0]-data_center[0].mean(), data_center[1]-data_center[1].mean())
-    corr_center = corr_center[100:300, 100:300]
-    """
-    
+    param_center = [ip_center, mgn, px_lim]
+    res_center = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_center,), method="Powell")
+    diff_center = displace(res_center["x"], param_center)
     
     ## for plot --------------------------------------------------------------
     fig = plt.figure(figsize=(10,15))
-    gs = fig.add_gridspec(5, 2)
+    gs = fig.add_gridspec(4, 2)
     
     ax_diff = image_plot(fig, path[16:26], gs[0, 0:2], data_diff, data_diff, 0, 100, "")
     ax_limb_0 = image_plot(fig, name[0]+argmax2d(data_limb[0])[1], gs[1, 1], data_limb[0], data_limb[0], 0, 100, "")
-    ax_limb_1 = image_plot(fig, name[1]+argmax2d(data_limb[1])[1], gs[3, 1], data_limb[1], data_limb[0], 0, 100, "")
+    ax_limb_1 = image_plot(fig, name[1]+argmax2d(data_limb[1])[1], gs[2, 1], data_limb[1], data_limb[0], 0, 100, "")
     ax_center_0 = image_plot(fig, name[0]+argmax2d(data_center[0])[1], gs[1, 0], data_center[0], data_limb[0], 0, 100, "")
     ax_center_1 = image_plot(fig, name[1]+argmax2d(data_center[1])[1], gs[2, 0], data_center[1], data_limb[0], 0, 100, "")
+    ax_res_limb = image_plot(fig, str(res_limb["x"]), gs[3, 1], diff_limb, diff_limb, 0, 100, "")
+    ax_res_center = image_plot(fig, str(res_center["x"]), gs[3, 0], diff_center, diff_center, 0, 100, "")
+    
     
     fig.tight_layout()
     
     picname = mkfolder("/"+path[9:15]) + path[16:26] + "_" + name[0][:2] + "_" + name[1][:2] + ".png"
     fig.savefig(picname)
+    
