@@ -12,6 +12,7 @@ import pykrige as krg
 import proper as pr
 import PIL
 import fits_correlation as corr
+import scipy as sp
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -56,20 +57,17 @@ def read(filename):
     df = df * 10**3 # [m] -> [mm]
     return df
 
-def kriging(df_0, dfxx):
+def fem_interpolate(df_0, dfxx):
     # input [mm] -> output [mm]    
     #mesh型のデータを格子点gridに補完
-    df_0 = df_0
-    dfxx = dfxx
+    x_old = dfxx["x"]
+    y_old = dfxx["y"]
+    dw_old = dfxx["dz"] - df_0["dz"]
     
-    x = dfxx["x"]
-    y = dfxx["y"]
-    dw = dfxx["dz"] - df_0["dz"]
+    xy_old = np.stack([x_old, y_old], axis=1)
+    dw_new = sp.interpolate.griddata(xy_old, dw_old, (xx, yy), method="linear", fill_value=0)
+    return dw_new
     
-    ok_module = krg.ok.OrdinaryKriging(x, y, dw)
-    z, sigmasq = ok_module.execute("grid", x_arr, y_arr) #格子点にdwをfitting
-    return z
-
 def rotation(array_2d, angle_deg, mask_tf):
     img = PIL.Image.fromarray(array_2d)
     img_rotate = img.rotate(angle_deg)
@@ -81,7 +79,7 @@ def tangent_line(x, y_surf, edge):
     
     idx = abs( x - (radi-edge)).argmin()
     
-    tilt = ( y[idx+1] - y[idx-1] ) / ( x[idx+1] - x[idx-1] )
+    tilt = ( y[idx+10] - y[idx-10] ) / ( x[idx+10] - x[idx-10] )
     tilt_deg = np.rad2deg(np.arctan(tilt)) # 角度deg
     y_line = tilt * (x - x[idx]) + y[idx]
     return y_line, tilt_deg, idx
@@ -107,7 +105,7 @@ def stick_plot(fig, title, position, x, y_surf, y_center, y_edge, edge):
     
     ## plot
     ax = fig.add_subplot(position)
-    ax.plot(x, y_surf, linewidth=5)
+    ax.plot(x[1:-1], y_surf[1:-1], linewidth=5)
     ax.plot(x, y_center)
     ax.plot(x, y_edge)
     ax.scatter([x[idx_c], x[idx_e]], [y_surf[idx_c], y_surf[idx_e]], s=200, c="red")
@@ -142,12 +140,15 @@ def text_plot(fig, title, position, text_list):
     return ax
 
 if __name__ == '__main__':
-    px = 257
+    px = 1025
     m1_radi = 1850/2
     stick_angle = 22.5 # アルミ棒のx軸に対する角度deg
     edge_length = 40 # フチから斜め鏡までの距離
     # fem では0.05Nm のトルク、実物の+-500は板バネ+-5mm相当、ばね定数5.78N/mm、腕の長さ0.25m
     fem2act = (5*2) *  5.78 * 0.25 / 0.05
+    
+    fname_res = "mkfolder/fits_correlation/210423/ex10.csv"
+    df_res = pd.read_csv(fname_res, index_col=0)
     
     x_arr = y_arr = np.linspace(-m1_radi, m1_radi, px)
     xx, yy = np.meshgrid(x_arr, y_arr)
@@ -155,45 +156,54 @@ if __name__ == '__main__':
     df0 = read("_Fxx/PM3.5_36ptAxWT03_F00.smesh.txt") 
     tf = np.where(xx**2+yy**2<=m1_radi**2, True, False)
     
-    ## 現実でのF09 -> モデルでのF08
-    ## 現実でのF11 -> モデルでのF07
-    act_dict = {"F09":"F08", "F11":"F07"} # {act_num:fem_num}
-    act_num = "F09"
-    fname = "_Fxx/PM3.5_36ptAxWT03_" + act_dict[act_num] + ".smesh.txt"
+    for i in range(0, len(df_res)):
+    #for i in range(0, 2):
+        act_num = "F" + str(df_res["act"][i]).zfill(2)
+        print(act_num)
     
-    dfxx = read(fname)
-    diff = tf * kriging(df0, dfxx)
-    
-    diff_rotate = rotation(diff, stick_angle, tf) * fem2act
-    stick_line = diff_rotate[128, :]
-    
-    y_c, tilt_c, idx_c = tangent_line(x_arr, stick_line, m1_radi)
-    y_e, tilt_e, idx_e = tangent_line(x_arr, stick_line, edge_length)
-    
-    ## calc tilt_angle to zwo183 px ------------------------------------------
-    zwopx_c = calc_zwopx(tilt_c)
-    zwopx_e = calc_zwopx(tilt_e)
-    
-    
-    ## for plot ------------------------------------------------------------
-    text = ["tilt_center = " + str(tilt_c.round(6)) + " [deg]",
-            "zwopx_center = " + str(zwopx_c.round(5)) + "[px]",
-            "tilt_edge = " + str(tilt_e.round(6)) + " [deg]",
-            "zwopx_edge = " + str(zwopx_e.round(5)) + " [px]",
-            ]
-    title_diff = act_dict[act_num] + " in FEM model"
-    title_rotate = "act" + act_num[1:] + " ( FEM x " + str(fem2act) + " ), " + str(stick_angle)+" deg"
-    
-    fig = plt.figure(figsize=(10,10))
-    gs = fig.add_gridspec(2,2)
-    
-    ax_diff = corr.image_plot(fig, title_diff, gs[0,0], diff, diff, 0, 100, "mm")
-    ax_rotate = corr.image_plot(fig, title_rotate, gs[0,1], diff_rotate, diff_rotate, 0, 100, "mm")
-    ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
-    #ax_table = table_plot(fig, "", gs[1,0], table_list, column_list, row_list)
-    ax_text = text_plot(fig, "", gs[1,0], text)
-    ax_stick = stick_plot(fig, "", gs[1, 1], x_arr, stick_line, y_c, y_e, edge_length)
-    fig.tight_layout()
-    
-    picname = mkfolder() + "act_" + act_num + ".png"
-    fig.savefig(picname)
+        ## 現実でのF09 -> モデルでのF08
+        ## 現実でのF11 -> モデルでのF07
+        #act_dict = {"F09":"F08", "F11":"F07"} # {act_num:fem_num}
+        #act_num = "F09"
+        #fname = "_Fxx/PM3.5_36ptAxWT03_" + act_dict[act_num] + ".smesh.txt"
+        fname = "_Fxx/PM3.5_36ptAxWT03_" + act_num + ".smesh.txt"
+        dfxx = read(fname)
+        diff =  tf * fem_interpolate(df0, dfxx)
+        
+        diff_rotate = rotation(diff, stick_angle, tf) * fem2act
+        stick_line = diff_rotate[round(px/2), :]
+        
+        y_c, tilt_c, idx_c = tangent_line(x_arr, stick_line, m1_radi)
+        y_e, tilt_e, idx_e = tangent_line(x_arr, stick_line, edge_length)
+        
+        ## calc tilt_angle to zwo183 px ------------------------------------------
+        zwopx_c = calc_zwopx(tilt_c)
+        zwopx_e = calc_zwopx(tilt_e)
+        
+        
+        ## for plot ------------------------------------------------------------
+        text = ["tilt_center = " + str(tilt_c.round(6)) + " [deg]",
+                "zwopx_center = " + str(zwopx_c.round(5)) + "[px]",
+                fname_res[-15:-4] + " = " + str(round(df_res["dvert_c"][i], 5)) + "[px]",
+                "",
+                "tilt_edge = " + str(tilt_e.round(6)) + " [deg]",
+                "zwopx_edge = " + str(zwopx_e.round(5)) + " [px]",
+                fname_res[-15:-4] + " = " + str(round(df_res["dvert_l"][i], 5)) + "[px]",
+                ]
+        #title_diff = act_dict[act_num] + " in FEM model"
+        title_diff = act_num
+        title_rotate = "act" + act_num[1:] + " ( FEM x " + str(fem2act) + " ), " + str(stick_angle)+" deg"
+        
+        fig = plt.figure(figsize=(10,10))
+        gs = fig.add_gridspec(2,2)
+        
+        ax_diff = corr.image_plot(fig, title_diff, gs[0,0], diff, diff, 0, 100, "mm")
+        ax_rotate = corr.image_plot(fig, title_rotate, gs[0,1], diff_rotate, diff_rotate, 0, 100, "mm")
+        ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
+        #ax_table = table_plot(fig, "", gs[1,0], table_list, column_list, row_list)
+        ax_text = text_plot(fig, "", gs[1,0], text)
+        ax_stick = stick_plot(fig, "", gs[1, 1], x_arr, stick_line, y_c, y_e, edge_length)
+        fig.tight_layout()
+        
+        picname = mkfolder() + "act_" + act_num + ".png"
+        fig.savefig(picname)
