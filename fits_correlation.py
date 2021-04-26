@@ -42,6 +42,21 @@ def fits_2darray(path):
     data = pic.data
     return data
 
+def fits_interpolate(array_2d, magnification): 
+    range_max = len(array_2d)
+    
+    x_arr = y_arr = np.arange(range_max)
+    xx, yy = np.meshgrid(x_arr, y_arr)
+    x_old = xx.flatten()
+    y_old = yy.flatten()
+    xy_old = np.stack([x_old, y_old], axis=1)
+    z_old = array_2d.flatten()
+    
+    x_new = y_new = np.linspace(0, range_max, range_max*magnification)
+    xx_new, yy_new = np.meshgrid(x_new, y_new)
+    zz_new = sp.interpolate.griddata(xy_old, z_old, (xx_new, yy_new), "cubic")
+    return zz_new    
+    
 def argmax2d(ndim_array):
     idx = np.unravel_index(np.argmax(ndim_array), ndim_array.shape)
     return idx, str(idx)
@@ -69,11 +84,13 @@ def image_plot(fig, title, position, c, c_scale, min_per, max_per, cbar_title):
 if __name__ == '__main__':
     
     name = ["-500", "+500"]
+    px_v, px_h = 384, 512
+    mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
+
     data_mean = []
     data_limb = []
     data_center = []
     
-    px_v, px_h = 384, 512
     
     for i in range(0, 2):
         path = "raw_data/210421/ex04_act09_" + name[i] + "/*.FIT"
@@ -93,31 +110,34 @@ if __name__ == '__main__':
         data_mean_temp = data_mean_temp / len(path_list)
         
         data_mean.append(data_mean_temp)
-        data_limb.append(data_mean_temp[100:300, 250:450])
+        data_limb.append(data_mean_temp[125:275, 275:425])
         data_center.append(data_mean_temp[100:300, 0:200])
-
+        
+    ## interpolate ---------------------------------------------------------------  
+    ip_limb = [fits_interpolate(data_limb[0], mgn), fits_interpolate(data_limb[1], mgn)]
+    ip_center = [fits_interpolate(data_center[0], mgn), fits_interpolate(data_center[1], mgn)]
     
     data_diff = data_mean[1] - data_mean[0]
     
     
-    ## correlate func
+    """
+    ## correlate func --------------------------------------------------------
     corr_limb = scipy.signal.correlate2d(data_limb[0]-data_limb[0].mean(), data_limb[1]-data_limb[1].mean())
     corr_limb = corr_limb[100:300, 100:300]
     corr_center = scipy.signal.correlate2d(data_center[0]-data_center[0].mean(), data_center[1]-data_center[1].mean())
     corr_center = corr_center[100:300, 100:300]
+    """
     
     
     ## for plot --------------------------------------------------------------
     fig = plt.figure(figsize=(10,15))
-    gs = fig.add_gridspec(4, 2)
+    gs = fig.add_gridspec(5, 2)
     
     ax_diff = image_plot(fig, path[16:26], gs[0, 0:2], data_diff, data_diff, 0, 100, "")
     ax_limb_0 = image_plot(fig, name[0]+argmax2d(data_limb[0])[1], gs[1, 1], data_limb[0], data_limb[0], 0, 100, "")
-    ax_limb_1 = image_plot(fig, name[1]+argmax2d(data_limb[1])[1], gs[2, 1], data_limb[1], data_limb[0], 0, 100, "")
+    ax_limb_1 = image_plot(fig, name[1]+argmax2d(data_limb[1])[1], gs[3, 1], data_limb[1], data_limb[0], 0, 100, "")
     ax_center_0 = image_plot(fig, name[0]+argmax2d(data_center[0])[1], gs[1, 0], data_center[0], data_limb[0], 0, 100, "")
     ax_center_1 = image_plot(fig, name[1]+argmax2d(data_center[1])[1], gs[2, 0], data_center[1], data_limb[0], 0, 100, "")
-    ax_corr_limb = image_plot(fig, argmax2d(corr_limb)[1], gs[3, 1], corr_limb, corr_limb, 0, 100, "")
-    ax_corr_center = image_plot(fig, argmax2d(corr_center)[1], gs[3, 0], corr_center, corr_center, 0, 100, "")
     
     fig.tight_layout()
     
