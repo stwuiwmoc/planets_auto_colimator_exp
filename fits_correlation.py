@@ -120,8 +120,8 @@ def argmax2d(ndim_array):
 
 def res2title(res):
     res_x, res_y = res["x"]/10
-    str_x = str(round(res_x, 2))
-    str_y = str(round(res_y, 2))
+    str_x = str(round(res_x, 1))
+    str_y = str(round(res_y, 1))
     title = r"( $\Delta$horizontal, $\Delta$vartical ) = ( " + str_y + " , " + str_x + " ) [px]"
     return title
 
@@ -217,7 +217,7 @@ if __name__ == '__main__':
         picname = mkfolder("/"+folder_path[9:15]) + folder_path[16:26] + "_" + name[0] + "_" + name[1] + ".png"
         fig.savefig(picname)
         
-        record = pd.Series([act_num, res_limb["x"][1]/10, res_limb["x"][0]/10, res_center["x"][1]/10, res_center["x"][0]/10], index=df_res.columns)        
+        record = pd.Series([act_num, res_limb["x"][0]/10, res_limb["x"][1]/10, res_center["x"][0]/10, res_center["x"][1]/10], index=df_res.columns)        
         df_res = df_res.append(record, ignore_index=True)
     
     df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")
