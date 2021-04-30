@@ -113,17 +113,41 @@ def std_func(X, param):
     diff = displace(X, param)
     std = np.std(diff)
     return std
-        
+
+def px2urad(Res_minimize):
+    """
+    minimizeのresultのpx数を棒と垂直・水平な平面内での角度[urad]に変換し、更にplot用のtitleを作成
+    Parameters
+    ----------
+    Res_minimize : Object
+        output of sp.optimize.minimize()
+
+    Returns
+    -------
+    Tilt_para : float64
+        Angle [micro rad] included in the plane parallel to the autocollimetor stick
+    Tilt_perp : float64
+        Angle [micro rad] included in the plane perpendicular to the autocollimetor stick
+
+    """
+    F = 500e3 # 望遠鏡の焦点距離 [um]
+    Zwopx = 2.4 # zwo183 : 2.4um per 1px
+
+    Px_xy = Res_minimize["x"]/10
+    Physical_length = Px_xy * Zwopx # 検出器位置での物理的距離
+    Theta = np.arctan(Physical_length / F) 
+    Tilt_urad_x, Tilt_urad_y = Theta / 2 * 1e6 # 反射するので鏡の傾きの2倍, microradなので1e6 
+    Tilt_para = Tilt_urad_x # 棒に平行な平面内での角度
+    Tilt_perp = Tilt_urad_y # 棒に垂直な平面内での角度
+    
+    Str_para = str(round(Tilt_para, 2))
+    Str_perp = str(round(Tilt_perp, 2))
+    Title = r"( $\Delta$para, $\Delta$perp ) = ( " + Str_para + " , " + Str_perp + " ) [micro rad]"
+    return Tilt_para, Tilt_perp, Title
+
 def argmax2d(ndim_array):
     idx = np.unravel_index(np.argmax(ndim_array), ndim_array.shape)
     return idx, str(idx)
-
-def res2title(res):
-    res_x, res_y = res["x"]/10
-    str_x = str(round(res_x, 1))
-    str_y = str(round(res_y, 1))
-    title = r"( $\Delta$horizontal, $\Delta$vartical ) = ( " + str_y + " , " + str_x + " ) [px]"
-    return title
 
 def image_plot(fig, title, position, c, c_scale, min_per, max_per, cbar_title):
     cmap1 = cm.jet
@@ -155,7 +179,7 @@ if __name__ == '__main__':
 
     act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
     #act_list = ["17"]
-    df_cols = ["act", "dvert_l", "dhori_l", "dvert_c", "dhori_c"]
+    df_cols = ["act", "para_l", "perp_l", "para_c", "perp_c"]
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
     for act_num in act_list:
@@ -195,10 +219,13 @@ if __name__ == '__main__':
         param_limb = [ip_limb, mgn, px_lim]
         res_limb = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_limb,), method="Powell")
         diff_limb = displace(res_limb["x"], param_limb)
+        angle_limb = px2urad(res_limb)
         
         param_center = [ip_center, mgn, px_lim]
         res_center = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_center,), method="Powell")
         diff_center = displace(res_center["x"], param_center)
+        angle_center = px2urad(res_center)
+        
         ## for plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
         gs = fig.add_gridspec(4, 2)
@@ -208,8 +235,8 @@ if __name__ == '__main__':
         ax_limb_1 = image_plot(fig, name[1]+argmax2d(data_limb[1])[1], gs[2, 1], data_limb[1], data_limb[0], 0, 100, "")
         ax_center_0 = image_plot(fig, name[0]+argmax2d(data_center[0])[1], gs[1, 0], data_center[0], data_limb[0], 0, 100, "")
         ax_center_1 = image_plot(fig, name[1]+argmax2d(data_center[1])[1], gs[2, 0], data_center[1], data_limb[0], 0, 100, "")
-        ax_res_limb = image_plot(fig, res2title(res_limb), gs[3, 1], diff_limb, diff_limb, 0, 100, "")
-        ax_res_center = image_plot(fig, res2title(res_center), gs[3, 0], diff_center, diff_center, 0, 100, "")
+        ax_res_limb = image_plot(fig, angle_limb[2], gs[3, 1], diff_limb, diff_limb, 0, 100, "")
+        ax_res_center = image_plot(fig, angle_center[2], gs[3, 0], diff_center, diff_center, 0, 100, "")
         
         
         fig.tight_layout()
@@ -217,7 +244,7 @@ if __name__ == '__main__':
         picname = mkfolder("/"+folder_path[9:15]) + folder_path[16:26] + "_" + name[0] + "_" + name[1] + ".png"
         fig.savefig(picname)
         
-        record = pd.Series([act_num, res_limb["x"][0]/10, res_limb["x"][1]/10, res_center["x"][0]/10, res_center["x"][1]/10], index=df_res.columns)        
+        record = pd.Series([act_num, angle_limb[0], angle_limb[1], angle_center[0], angle_center[1]], index=df_res.columns)        
         df_res = df_res.append(record, ignore_index=True)
     
     df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")
