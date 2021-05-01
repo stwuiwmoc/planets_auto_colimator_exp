@@ -15,8 +15,6 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from matplotlib.colors import Normalize
-import mpl_toolkits.axes_grid1
 
 def mkfolder(suffix = ""):
     import os
@@ -160,6 +158,8 @@ def image_plot(fig, title, position, c, c_scale, min_per, max_per, cbar_title):
     ax.imshow(c, interpolation="nearest", cmap=cmap1, vmin=cbar_min, vmax=cbar_max, origin="lower")
     ax.set_title(title, fontsize=fs)
   
+    from matplotlib.colors import Normalize
+    import mpl_toolkits.axes_grid1
     divider = mpl_toolkits.axes_grid1.make_axes_locatable(ax)
     cax = divider.append_axes('right', '5%', pad='3%')
     norm = Normalize(vmin=cbar_min, vmax=cbar_max)
