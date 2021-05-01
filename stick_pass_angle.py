@@ -72,16 +72,45 @@ def rotation(array_2d, angle_deg, mask_tf):
     img_rotate = img.rotate(angle_deg)
     return img_rotate * mask_tf
 
-def tangent_line(x, y_surf, edge):
-    y = y_surf
-    radi = x.max()
+def perp_line(X, Array_2d, Edge):
+    Radi = X.max()
+    Idx = abs( X - (Radi-Edge)).argmin()
     
-    idx = abs( x - (radi-edge)).argmin()
+    Perp_line = Array_2d[:, Idx]
+    return Perp_line
+
+def tangent_line(X, Y_surf, Edge):
+    """
     
-    tilt = ( y[idx+15] - y[idx-15] ) / ( x[idx+15] - x[idx-15] )
-    tilt_rad = np.arctan(tilt) # 角度rad
-    y_line = tilt * (x - x[idx]) + y[idx]
-    return y_line, tilt_rad, idx
+
+    Parameters
+    ----------
+    X : 1d-array
+        
+    Y_surf : 1d-array
+        stick_line
+    Edge : float
+        length from M1 edge
+
+    Returns
+    -------
+    Y_line : 1d-array
+        tangent line
+    Angle : float[micro rad]
+        
+    Idx : int
+        DESCRIPTION.
+
+    """
+    Y = Y_surf
+    Radi = X.max()
+    Idx = abs( X - (Radi-Edge)).argmin()
+    
+    Tilt = ( Y[Idx+15] - Y[Idx-15] ) / ( X[Idx+15] - X[Idx-15] )
+    Angle = np.arctan(Tilt) * 1e6 # 角度 microrad
+    
+    Y_line = Tilt * (X - X[Idx]) + Y[Idx]
+    return Y_line, Angle, Idx
 
 def calc_zwopx(tilt_rad):
     f = 500e3 # 望遠鏡の焦点距離 [um]
@@ -106,7 +135,7 @@ def stick_plot(fig, title, position, x, y_surf, edge):
     ax.plot(x[1:-1], y_surf[1:-1], linewidth=5, label="")
     ax.plot(x, y_ct, label=tilt_ct_mrad + " [micro rad]")
     ax.plot(x, y_eg, label=tilt_eg_mrad + " [micro rad]")
-    ax.scatter([x[idx_c], x[idx_e]], [y_surf[idx_c], y_surf[idx_e]], s=200, c="red", label="")
+    ax.scatter([x[idx_ct], x[idx_eg]], [y_surf[idx_ct], y_surf[idx_eg]], s=200, c="red", label="")
     
     ax.set_ylim(y_surf.min(), y_surf.max())
     ax.set_ylabel
@@ -164,8 +193,11 @@ if __name__ == '__main__':
     df0 = read("_Fxx/PM3.5_36ptAxWT06_F00.smesh.txt") 
     tf = np.where(xx**2+yy**2<=m1_radi**2, True, False)
     
+    df_cols = ["act", "para_l", "perp_l", "para_c", "perp_c"]
+    df_res_fem = pd.DataFrame(index=[], columns=df_cols)
+    
     for i in range(0, len(df_res)):
-    #for i in range(0, 1):
+    #for i in range(0, 3):
         act_num = "F" + str(df_res["act"][i]).zfill(2)
         print(act_num)
         
@@ -177,17 +209,19 @@ if __name__ == '__main__':
         diff =  tf * fem_interpolate(df0, dfxx)
         
         diff_rotate = rotation(diff, stick_angle, tf) * fem2act
-        stick_line = diff_rotate[round(px/2), :]
+        para_line = diff_rotate[round(px/2), :]
+        perp_line_c = perp_line(y_arr, diff_rotate, m1_radi)
+        perp_line_e = perp_line(y_arr, diff_rotate, edge_length)
         
-        y_c, tilt_c, idx_c = tangent_line(x_arr, stick_line, m1_radi)
-        y_e, tilt_e, idx_e = tangent_line(x_arr, stick_line, edge_length)
         
-        ## calc tilt_angle to zwo183 px ------------------------------------------
-        zwopx_c = calc_zwopx(tilt_c) 
-        zwopx_e = calc_zwopx(tilt_e)
+        para_c = tangent_line(x_arr, para_line, m1_radi)
+        para_e = tangent_line(x_arr, para_line, edge_length)
+        perp_c = tangent_line(y_arr, perp_line_c, m1_radi)
+        perp_e = tangent_line(y_arr, perp_line_e, m1_radi)
         
         
         ## for plot ------------------------------------------------------------
+        """
         text = ["zwopx_center = " + str(zwopx_c.round(3)) + "[px]",
                 fname_res[-15:-4] + " = " + str(round(df_res["dvert_c"][i], 3)) + "[px]",
                 "",
@@ -197,21 +231,30 @@ if __name__ == '__main__':
                 "zwopx_diff = " + str((zwopx_e-zwopx_c).round(3)) + " [px]",
                 fname_res[-15:-4] + " = " + str(round(df_res["dvert_l"][i]-df_res["dvert_c"][i], 3)) + "[px]",
                 ]
-        
-        #title_diff = act_dict[act_num] + " in FEM model"
+        """
+        text=[]
         title_diff = "act" + act_num[1:] + " in FEM"
         title_rotate = "act" + act_num[1:] + " ( FEM x " + str(fem2act) + " ), " + str(stick_angle)+" deg"
         
-        fig = plt.figure(figsize=(10,10))
-        gs = fig.add_gridspec(2,2)
+        fig = plt.figure(figsize=(10,15))
+        gs = fig.add_gridspec(3,2)
         
         ax_diff = corr.image_plot(fig, title_diff, gs[0,0], diff, diff, 0, 100, "mm")
-        ax_rotate = corr.image_plot(fig, title_rotate, gs[0,1], diff_rotate, diff_rotate, 0, 100, "mm")
+        ax_rotate = corr.image_plot(fig, title_rotate, gs[1,0], diff_rotate, diff_rotate, 0, 100, "mm")
         ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
+        ax_rotate.vlines([para_c[2], para_e[2]], 0, px-1, linewidth=3, colors="black")
         #ax_table = table_plot(fig, "", gs[1,0], table_list, column_list, row_list)
-        ax_text = text_plot(fig, "", gs[1,0], text)
-        ax_stick = stick_plot(fig, "", gs[1, 1], x_arr, stick_line, edge_length)
+        ax_text = text_plot(fig, "", gs[0, 1], text)
+        ax_para = stick_plot(fig, "", gs[2, 0], x_arr, para_line, edge_length)
+        
+        ax_perp_c = stick_plot(fig, "", gs[1, 1], y_arr, perp_line_c, m1_radi)
+        ax_perp_e = stick_plot(fig, "", gs[2, 1], y_arr, perp_line_e, m1_radi)
         fig.tight_layout()
         
         picname = mkfolder() + "act_" + act_num + ".png"
         fig.savefig(picname)
+        
+        record = pd.Series([int(act_num[1:]), para_e[1], perp_e[1], para_c[1], perp_c[1]], index=df_res.columns)        
+        df_res_fem = df_res_fem.append(record, ignore_index=True)
+    
+    df_res_fem.to_csv(mkfolder()+"fem_angle.csv")
