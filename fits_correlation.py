@@ -179,7 +179,7 @@ if __name__ == '__main__':
 
     act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
     #act_list = ["17"]
-    df_cols = ["act", "para_l", "perp_l", "para_c", "perp_c"]
+    df_cols = ["act", "para_e", "perp_e", "para_c", "perp_c"]
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
     for act_num in act_list:

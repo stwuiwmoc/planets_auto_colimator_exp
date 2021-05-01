@@ -193,7 +193,7 @@ if __name__ == '__main__':
     df0 = read("_Fxx/PM3.5_36ptAxWT06_F00.smesh.txt") 
     tf = np.where(xx**2+yy**2<=m1_radi**2, True, False)
     
-    df_cols = ["act", "para_l", "perp_l", "para_c", "perp_c"]
+    df_cols = ["act", "para_e", "perp_e", "para_c", "perp_c"]
     df_res_fem = pd.DataFrame(index=[], columns=df_cols)
     
     for i in range(0, len(df_res)):
@@ -212,7 +212,6 @@ if __name__ == '__main__':
         para_line = diff_rotate[round(px/2), :]
         perp_line_c = perp_line(y_arr, diff_rotate, m1_radi)
         perp_line_e = perp_line(y_arr, diff_rotate, edge_length)
-        
         
         para_c = tangent_line(x_arr, para_line, m1_radi)
         para_e = tangent_line(x_arr, para_line, edge_length)
@@ -254,7 +253,7 @@ if __name__ == '__main__':
         picname = mkfolder() + "act_" + act_num + ".png"
         fig.savefig(picname)
         
-        record = pd.Series([int(act_num[1:]), para_e[1], perp_e[1], para_c[1], perp_c[1]], index=df_res.columns)        
+        record = pd.Series([int(act_num[1:]), para_e[1], perp_e[1], para_c[1], perp_c[1]], index=df_res_fem.columns)        
         df_res_fem = df_res_fem.append(record, ignore_index=True)
     
     df_res_fem.to_csv(mkfolder()+"fem_angle.csv")
