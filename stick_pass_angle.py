@@ -10,7 +10,7 @@ import pandas as pd
 import os
 import proper as pr
 import PIL
-import fits_correlation as corr
+import ac0423read as ac
 import scipy as sp
 
 import matplotlib.pyplot as plt
@@ -171,7 +171,7 @@ def text_plot(fig, title, position, text_list):
 if __name__ == '__main__':
     px = 1025
     m1_radi = 1850/2
-    stick_angle = 22.5 # アルミ棒のx軸に対する角度deg
+    stick_angle = 30 # アルミ棒のx軸に対する角度deg
     edge_length = 40 # フチから斜め鏡までの距離
     # fem では0.05Nm のトルク、実物の+-500は板バネ+-5mm相当、ばね定数5.78N/mm、腕の長さ0.25m
     
@@ -184,8 +184,8 @@ if __name__ == '__main__':
        -38.,  38.,  37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,
         20., -38.,  38.])
     
-    fname_res = "mkfolder/fits_correlation/210423/ex10.csv"
-    df_res = pd.read_csv(fname_res, index_col=0)
+    fname_res = "mkfolder/ac0430read/210430/act01_36.csv"
+    df_res = pd.read_csv(fname_res)
     
     x_arr = y_arr = np.linspace(-m1_radi, m1_radi, px)
     xx, yy = np.meshgrid(x_arr, y_arr)
@@ -202,7 +202,7 @@ if __name__ == '__main__':
         print(act_num)
         
         #fem は0.5Nm, モーター100step(1mm)への変換係数がact_tuning, 0423の計測は+-500stepなので更に10倍
-        fem2act = 10 * act_tuning[df_res["act"][i]-1]
+        fem2act = 5 * act_tuning[df_res["act"][i]-1]
     
         fname = "_Fxx/PM3.5_36ptAxWT06_" + act_num + ".smesh.txt"
         dfxx = read(fname)
@@ -238,8 +238,8 @@ if __name__ == '__main__':
         fig = plt.figure(figsize=(10,15))
         gs = fig.add_gridspec(3,2)
         
-        ax_diff = corr.image_plot(fig, title_diff, gs[0,0], diff, diff, 0, 100, "mm")
-        ax_rotate = corr.image_plot(fig, title_rotate, gs[1,0], diff_rotate, diff_rotate, 0, 100, "mm")
+        ax_diff = ac.image_plot(fig, title_diff, gs[0,0], diff, diff, 0, 100, "mm")
+        ax_rotate = ac.image_plot(fig, title_rotate, gs[1,0], diff_rotate, diff_rotate, 0, 100, "mm")
         ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
         ax_rotate.vlines([para_c[2], para_e[2]], 0, px-1, linewidth=3, colors="black")
         #ax_table = table_plot(fig, "", gs[1,0], table_list, column_list, row_list)
