@@ -14,6 +14,7 @@ import glob
 import scipy.signal
 import sys
 import pandas as pd
+import numba as jit
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -149,7 +150,7 @@ def argmax2d(ndim_array):
     idx = np.unravel_index(np.argmax(ndim_array), ndim_array.shape)
     return idx, str(idx)
 
-def image_plot(fig, title, position, c, c_scale, min_per, max_per, cbar_title):
+def image_plot(fig, title, position, c, c_scale, min_per=0, max_per=100, cbar_title=""):
     cmap1 = cm.jet
     fs = 10
     c_scale = np.sort(c_scale.flatten())
