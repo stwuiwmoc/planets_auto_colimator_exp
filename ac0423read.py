@@ -115,13 +115,16 @@ def std_func(X, param):
     std = np.std(diff)
     return std
 
-def px2urad(Res_minimize):
+def error_bar():
+    return
+
+def px2urad(Subpx_xy):
     """
     minimizeのresultのpx数を棒と垂直・水平な平面内での角度[urad]に変換し、更にplot用のtitleを作成
     Parameters
     ----------
-    Res_minimize : Object
-        output of sp.optimize.minimize()
+    Suppx_xy : Tuple
+        output of sp.optimize.minimize()["x"]
 
     Returns
     -------
@@ -134,7 +137,7 @@ def px2urad(Res_minimize):
     F = 500e3 # 望遠鏡の焦点距離 [um]
     Zwopx = 2.4 # zwo183 : 2.4um per 1px
 
-    Px_xy = Res_minimize["x"]/10
+    Px_xy = Subpx_xy/10
     Physical_length = Px_xy * Zwopx # 検出器位置での物理的距離
     Theta = np.arctan(Physical_length / F) 
     Tilt_urad_x, Tilt_urad_y = Theta / 2 * 1e6 # 反射するので鏡の傾きの2倍, microradなので1e6 
@@ -222,12 +225,12 @@ if __name__ == '__main__':
         param_limb = [ip_limb, mgn, px_lim]
         res_limb = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_limb,), method="Powell")
         diff_limb = displace(res_limb["x"], param_limb)
-        angle_limb = px2urad(res_limb)
+        angle_limb = px2urad(res_limb["x"])
         
         param_center = [ip_center, mgn, px_lim]
         res_center = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_center,), method="Powell")
         diff_center = displace(res_center["x"], param_center)
-        angle_center = px2urad(res_center)
+        angle_center = px2urad(res_center["x"])
         
         ## for plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
