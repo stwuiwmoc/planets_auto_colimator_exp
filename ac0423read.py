@@ -14,7 +14,6 @@ import glob
 import scipy.signal
 import sys
 import pandas as pd
-import numba as jit
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -77,8 +76,8 @@ def displace(Dx, Dy, Param):
     std : float
         ずらす前後の差分についての標準偏差
     """
-    Dx = round(Dx)
-    Dy = round(Dy)
+    Dx = np.round(Dx)
+    Dy = np.round(Dy)
     Data = Param[0]
     Magnification = Param[1]
     Dlim = Param[2]
@@ -116,6 +115,94 @@ def std_func(X, param):
     diff = displace(X[0], X[1], param)
     std = np.std(diff)
     return std
+
+def error_x_func(X, Param_res):
+    """
+    paramで与えられた y は固定で、Xをずらして標準偏差を計算
+
+    Parameters
+    ----------
+    X : float (not tuple)
+        x方向にずらすpx数を指定
+    Param_res : list [[data_list, magnification, dlim], OptimizeResult, sigma_mgn]
+        sigma_mgnは標準偏差に対するエラーバーの長さ
+
+    Returns
+    -------
+    Std : TYPE
+        DESCRIPTION.
+
+    """
+    
+    Param = Param_res[0]
+    Opresult = Param_res[1]
+    Sigma_mgn = Param_res[2]
+    
+    Diff = displace(X, Opresult["x"][1], Param)
+    Std = np.std(Diff)
+    Result = abs( Std - Sigma_mgn * Opresult["fun"])
+    return Result
+
+def error_y_func(Y, Param_res):
+    Param = Param_res[0]
+    Opresult = Param_res[1]
+    Sigma_mgn = Param_res[2]
+    Diff = displace(Opresult["x"][0], Y, Param)
+    Std = np.std(Diff)
+    Result = abs( Std - Sigma_mgn * Opresult["fun"])
+    return Result
+
+def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
+    """
+    x, yについて error barの最大値と最小値を、制約付き最小化で求めるためのラッパー
+    OptimizeResultで求めた標準偏差の最小値 ["fun"] に対して、 fun*sigma_mgn を閾値として、標準偏差がfun*sigma_mgnまでの範囲をエラーバーとする
+    例） OptimizeResult["fun"] = 796, OptimizeResult["x"] = (4.9, -67.7), Sigma_mgn = 2であるとき
+    x方向のエラーバー -> y=-67.7に固定して fun = 796*2 になる x を探す
+    この時、エラーバーには上限と下限があるので、x を探す範囲に x > 4.9 or x < 4.9 の制約をつけてそれぞれについて fun = 796*2 を探す
+    
+    Parameters
+    ----------
+    Param : list [data_list, magnification, dlim]
+        DESCRIPTION.
+    OptimizeResult : Object
+        DESCRIPTION.
+    Sigma_mgn : float
+        標準偏差に対するエラーバーの長さの計算用、標準偏差 * sigma_mgnがエラーバーの幅を決定
+
+    Returns
+    -------
+    Result : list [x下限, x最小値, x上限, y下限, y最小値, y上限]
+        "最小値"は、inputの OptimizeResultで計算済みの、"fun"を最小にするような x ,y
+
+    """
+    Param_res = [Param, OptimizeResult, Sigma_mgn]
+    
+    Xmin = sp.optimize.minimize(fun=error_x_func,
+                                x0=( OptimizeResult["x"][0] - 1 ), 
+                                args=(Param_res),
+                                constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][0] ) },
+                                method="COBYLA")
+ 
+    Xmax = sp.optimize.minimize(fun=error_x_func, 
+                                x0=( OptimizeResult["x"][0] + 1 ), 
+                                args=(Param_res),
+                                constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][0] ) },
+                                method="COBYLA")
+    
+    Ymin = sp.optimize.minimize(fun=error_y_func,
+                                x0=( OptimizeResult["x"][1] - 1 ), 
+                                args=(Param_res),
+                                constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][1] ) },
+                                method="COBYLA")
+        
+    Ymax = sp.optimize.minimize(fun=error_y_func, 
+                                x0=( OptimizeResult["x"][1] + 1 ), 
+                                args=(Param_res),
+                                constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][1] ) },
+                                method="COBYLA")
+    
+    Result = np.stack([Xmin["x"], OptimizeResult["x"][0], Xmax["x"], Ymin["x"], OptimizeResult["x"][1], Ymax["x"]])
+    return Result
 
 def px2urad(Subpx_xy):
     """
@@ -230,8 +317,13 @@ if __name__ == '__main__':
         res_center = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_center,), method="Powell")
         diff_center = displace(res_center["x"][0], res_center["x"][1], param_center)
         angle_center = px2urad(res_center["x"])
+        ## error_bar ------------------------------------------------------------
         
+        eb_c = error_bar_bounds(param_center, res_center, 2)
+        eb_e = error_bar_bounds(param_limb, res_limb, 2)
+    
         ## for plot --------------------------------------------------------------
+        """
         fig = plt.figure(figsize=(10,15))
         gs = fig.add_gridspec(4, 2)
         
@@ -251,5 +343,5 @@ if __name__ == '__main__':
         
         record = pd.Series([act_num, angle_limb[0], angle_limb[1], angle_center[0], angle_center[1]], index=df_res.columns)        
         df_res = df_res.append(record, ignore_index=True)
-    
+    """
     #df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")
