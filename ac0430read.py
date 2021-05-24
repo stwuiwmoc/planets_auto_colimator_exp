@@ -100,12 +100,12 @@ if __name__ == '__main__':
         ## minimize ----------------------------------------------------------
         param_e = [ip_e, mgn, px_lim]
         res_e = sp.optimize.minimize(fun=ac.std_func, x0=(0,0), args=(param_e, ), method="Powell")
-        diff_e = ac.displace(res_e["x"], param_e)
+        diff_e = ac.displace(res_e["x"][0], res_e["x"][1], param_e)
         angle_e = ac.px2urad(res_e["x"])
         
         param_c = [ip_c, mgn, px_lim]
         res_c = sp.optimize.minimize(fun=ac.std_func, x0=(0,0), args=(param_c, ), method="Powell")
-        diff_c = ac.displace(res_c["x"], param_c)
+        diff_c = ac.displace(res_c["x"][0], res_c["x"][1], param_c)
         angle_c = ac.px2urad(res_c["x"])
         
         record = pd.Series([act_num, angle_e[0], angle_e[1], angle_c[0], angle_c[1]], index=df_res.columns)        
@@ -129,5 +129,5 @@ if __name__ == '__main__':
         fig.savefig(picname)
     
     csvname = mkfolder("/"+folder_path[9:15]) + "act01_36.csv"
-    df_res.to_csv(csvname, index=False)
+    #df_res.to_csv(csvname, index=False)
     print(time.time()-start)

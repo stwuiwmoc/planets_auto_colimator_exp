@@ -59,15 +59,17 @@ def fits_interpolate(array_2d, magnification):
     zz_new = sp.interpolate.griddata(xy_old, z_old, (xx_new, yy_new), "cubic")
     return zz_new
 
-def displace(X, param):
+def displace(Dx, Dy, Param):
     """
-    X = (dx, dy) で与えられたpx分 data_1 をずらし、差分とって標準偏差を計算
+    (Dx, Dy) で与えられたpx分 data_1 をずらし、差分とって標準偏差を計算
 
     Parameters
     ----------
-    X : tuple (dx, dy)
-        ずらすpx数を指定
-    param : TYPE
+    Dx : int
+        x方向にずらすpx数を指定
+    Dy : int
+        y方向にずらすpx数を指定
+    Param : list
         list [data_list, magnification, dlim]
 
     Returns
@@ -75,25 +77,25 @@ def displace(X, param):
     std : float
         ずらす前後の差分についての標準偏差
     """
-    dx = round(X[0])
-    dy = round(X[1])
-    data = param[0]
-    magnification = param[1]
-    dlim = param[2]
+    Dx = round(Dx)
+    Dy = round(Dy)
+    Data = Param[0]
+    Magnification = Param[1]
+    Dlim = Param[2]
     
-    data_0 = data[0]
-    data_1 = data[1]
+    Data_0 = Data[0]
+    Data_1 = Data[1]
     
     ## ずらした部分にnp.nanが入らないように、ずらす最大値の分だけ周りを切り取る
-    s0x = s0y = slice( int(dlim), int(len(data_0)-(dlim+magnification)) )
+    S0x = S0y = slice( int(Dlim), int(len(Data_0)-(Dlim+Magnification)) )
     ## dx, dyずらす を dx, dyずらして切り出す で対応
-    s1x = slice( int(dlim+dx), int(len(data_0)+dx-(dlim+magnification)) )
-    s1y = slice( int(dlim+dy), int(len(data_0)+dy-(dlim+magnification)) )
+    S1x = slice( int(Dlim+Dx), int(len(Data_0)+Dx-(Dlim+Magnification)) )
+    S1y = slice( int(Dlim+Dy), int(len(Data_0)+Dy-(Dlim+Magnification)) )
     
-    cut_0 = data_0[s0x, s0y]
-    cut_1 = data_1[s1x, s1y]
-    diff = cut_1 - cut_0
-    return diff#, s1x, s1y, data_0, data_1, s0x, s0y
+    Cut_0 = Data_0[S0x, S0y]
+    Cut_1 = Data_1[S1x, S1y]
+    Diff = Cut_1 - Cut_0
+    return Diff
 
 def std_func(X, param):
     """
@@ -111,12 +113,9 @@ def std_func(X, param):
     std : float
         ずらす前後の差分についての標準偏差
     """
-    diff = displace(X, param)
+    diff = displace(X[0], X[1], param)
     std = np.std(diff)
     return std
-
-def error_bar():
-    return
 
 def px2urad(Subpx_xy):
     """
@@ -183,8 +182,8 @@ if __name__ == '__main__':
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
     px_lim = int(30*mgn)
 
-    act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
-    #act_list = ["17"]
+    #act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
+    act_list = ["17"]
     df_cols = ["act", "para_e", "perp_e", "para_c", "perp_c"]
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
@@ -224,12 +223,12 @@ if __name__ == '__main__':
         ## minimize ----------------------------------------------------------------
         param_limb = [ip_limb, mgn, px_lim]
         res_limb = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_limb,), method="Powell")
-        diff_limb = displace(res_limb["x"], param_limb)
+        diff_limb = displace(res_limb["x"][0], res_limb["x"][1], param_limb)
         angle_limb = px2urad(res_limb["x"])
         
         param_center = [ip_center, mgn, px_lim]
         res_center = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_center,), method="Powell")
-        diff_center = displace(res_center["x"], param_center)
+        diff_center = displace(res_center["x"][0], res_center["x"][1], param_center)
         angle_center = px2urad(res_center["x"])
         
         ## for plot --------------------------------------------------------------
@@ -253,4 +252,4 @@ if __name__ == '__main__':
         record = pd.Series([act_num, angle_limb[0], angle_limb[1], angle_center[0], angle_center[1]], index=df_res.columns)        
         df_res = df_res.append(record, ignore_index=True)
     
-    df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")
+    #df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")
