@@ -63,8 +63,8 @@ if __name__ == '__main__':
     """
     folder_list = folder_list_raw[2:-2]
     
-    for i in range(1):
-        act_num = str(i+1).zfill(2)
+    for i in range(1, 37):
+        act_num = str(i).zfill(2)
         print(act_num)
         
         data_mean = []
@@ -129,5 +129,5 @@ if __name__ == '__main__':
         fig.savefig(picname)
     
     csvname = mkfolder("/"+folder_path[9:15]) + "act01_36.csv"
-    #df_res.to_csv(csvname, index=False)
+    df_res.to_csv(csvname, index=False)
     print(time.time()-start)
