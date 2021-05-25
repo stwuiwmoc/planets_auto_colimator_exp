@@ -32,8 +32,8 @@ def mkfolder(suffix = ""):
     """
     filename = os.path.basename(__file__)
     filename = filename.replace(".py", "") + suffix
-    folder = "mkfolder/" + filename + "/"
-    os.makedirs(folder, exist_ok=True)
+    folder = "mkfolder/" + filename + "/" 
+    os.makedirs(folder, exist_ok = True)
     return folder
 
 def fits_2darray(path):
@@ -177,29 +177,29 @@ def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
     """
     Param_res = [Param, OptimizeResult, Sigma_mgn]
     
-    Xmin = sp.optimize.minimize(fun=error_x_func,
-                                x0=( OptimizeResult["x"][0] - 1 ), 
-                                args=(Param_res),
+    Xmin = sp.optimize.minimize(fun = error_x_func,
+                                x0 = ( OptimizeResult["x"][0] - 1 ), 
+                                args = (Param_res),
                                 constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][0] ) },
-                                method="COBYLA")
+                                method = "COBYLA")
  
-    Xmax = sp.optimize.minimize(fun=error_x_func, 
-                                x0=( OptimizeResult["x"][0] + 1 ), 
-                                args=(Param_res),
+    Xmax = sp.optimize.minimize(fun = error_x_func, 
+                                x0 = ( OptimizeResult["x"][0] + 1 ), 
+                                args = (Param_res),
                                 constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][0] ) },
-                                method="COBYLA")
+                                method = "COBYLA")
     
-    Ymin = sp.optimize.minimize(fun=error_y_func,
-                                x0=( OptimizeResult["x"][1] - 1 ), 
-                                args=(Param_res),
+    Ymin = sp.optimize.minimize(fun = error_y_func,
+                                x0 = ( OptimizeResult["x"][1] - 1 ), 
+                                args = (Param_res),
                                 constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][1] ) },
-                                method="COBYLA")
+                                method = "COBYLA")
         
-    Ymax = sp.optimize.minimize(fun=error_y_func, 
-                                x0=( OptimizeResult["x"][1] + 1 ), 
-                                args=(Param_res),
+    Ymax = sp.optimize.minimize(fun = error_y_func, 
+                                x0 = ( OptimizeResult["x"][1] + 1 ), 
+                                args = (Param_res),
                                 constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][1] ) },
-                                method="COBYLA")
+                                method = "COBYLA")
     
     Result = np.stack([Xmin["x"], OptimizeResult["x"][0], Xmax["x"], Ymin["x"], OptimizeResult["x"][1], Ymax["x"]])
     return Result
