@@ -172,9 +172,10 @@ def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
     Returns
     -------
     Result : list [x下限, x最小値, x上限, y下限, y最小値, y上限]
+        x : parallel方向, y : perpendicular方向
         "最小値"は、inputの OptimizeResultで計算済みの、"fun"を最小にするような x ,y
-
     """
+    
     Param_res = [Param, OptimizeResult, Sigma_mgn]
     
     Xmin = sp.optimize.minimize(fun = error_x_func,
@@ -204,36 +205,56 @@ def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
     Result = np.stack([Xmin["x"], OptimizeResult["x"][0], Xmax["x"], Ymin["x"], OptimizeResult["x"][1], Ymax["x"]])
     return Result
 
-def px2urad(Subpx_xy):
+def subpx2urad(Subpx):
     """
-    minimizeのresultのpx数を棒と垂直・水平な平面内での角度[urad]に変換し、更にplot用のtitleを作成
+    minimizeのresultのsubpx数を、主鏡のrocalな角度[urad]に変換
+
     Parameters
     ----------
-    Suppx_xy : Tuple
-        output of sp.optimize.minimize()["x"]
+    Subpx : float
+        output of sp.optimize.minimize()["x"][0] or [1] (not tuple)
 
     Returns
     -------
-    Tilt_para : float64
-        Angle [micro rad] included in the plane parallel to the autocollimetor stick
-    Tilt_perp : float64
-        Angle [micro rad] included in the plane perpendicular to the autocollimetor stick
+    Tilt_urad : float
+        Angle [micro rad]
 
     """
     F = 500e3 # 望遠鏡の焦点距離 [um]
     Zwopx = 2.4 # zwo183 : 2.4um per 1px
 
-    Px_xy = Subpx_xy/10
-    Physical_length = Px_xy * Zwopx # 検出器位置での物理的距離
+    Px = Subpx / 10
+    Physical_length = Px * Zwopx # 検出器位置での物理的距離
     Theta = np.arctan(Physical_length / F) 
-    Tilt_urad_x, Tilt_urad_y = Theta / 2 * 1e6 # 反射するので鏡の傾きの2倍, microradなので1e6 
+    Tilt_urad = Theta / 2 * 1e6 # 反射するので鏡の傾きの2倍, microradなので1e6
+    return Tilt_urad
+
+def urad2title(Tilt_urad_x, Tilt_urad_y):
+    """
+    x,y方向pxから変換した [urad] を、figureのtitle用にテキストに変換
+    para : Angle [micro rad] included in the plane parallel to the autocollimetor stick
+    perp : Angle [micro rad] included in the plane perpendicular to the autocollimetor stick
+    
+    Parameters
+    ----------
+    Tilt_urad_x : float
+        Angle [micro rad] (x)
+    Tilt_urad_y : float
+        Angle [micro rad] (y)
+
+    Returns
+    -------
+    Title : str
+        DESCRIPTION.
+
+    """
     Tilt_para = Tilt_urad_x # 棒に平行な平面内での角度
     Tilt_perp = Tilt_urad_y # 棒に垂直な平面内での角度
     
     Str_para = str(round(Tilt_para, 2))
     Str_perp = str(round(Tilt_perp, 2))
     Title = r"( $\Delta$para, $\Delta$perp ) = ( " + Str_para + " , " + Str_perp + " ) [micro rad]"
-    return Tilt_para, Tilt_perp, Title
+    return Title
 
 def argmax2d(ndim_array):
     idx = np.unravel_index(np.argmax(ndim_array), ndim_array.shape)
@@ -269,9 +290,15 @@ if __name__ == '__main__':
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
     px_lim = int(30*mgn)
 
-    #act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
-    act_list = ["17"]
-    df_cols = ["act", "para_e", "perp_e", "para_c", "perp_c"]
+    act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
+    #act_list = ["17"]
+    
+    df_cols = ["act",
+               "para_e_min", "para_e", "para_e_max",
+               "perp_e_min", "perp_e", "perp_e_max", 
+               "para_c_min", "para_c", "para_c_max", 
+               "perp_c_min", "perp_c", "perp_c_max" ]
+    
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
     for act_num in act_list:
@@ -311,19 +338,20 @@ if __name__ == '__main__':
         param_limb = [ip_limb, mgn, px_lim]
         res_limb = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_limb,), method="Powell")
         diff_limb = displace(res_limb["x"][0], res_limb["x"][1], param_limb)
-        angle_limb = px2urad(res_limb["x"])
         
         param_center = [ip_center, mgn, px_lim]
         res_center = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_center,), method="Powell")
         diff_center = displace(res_center["x"][0], res_center["x"][1], param_center)
-        angle_center = px2urad(res_center["x"])
         ## error_bar ------------------------------------------------------------
         
-        eb_c = error_bar_bounds(param_center, res_center, 2)
-        eb_e = error_bar_bounds(param_limb, res_limb, 2)
+        eb_c_px = error_bar_bounds(param_center, res_center, 2)
+        eb_e_px = error_bar_bounds(param_limb, res_limb, 2)
+        eb_c_urad = subpx2urad(eb_c_px)
+        eb_e_urad = subpx2urad(eb_e_px)
+        angle_center = urad2title(eb_c_urad[1], eb_c_urad[4])
+        angle_limb = urad2title(eb_e_urad[1], eb_e_urad[4])
     
         ## for plot --------------------------------------------------------------
-        """
         fig = plt.figure(figsize=(10,15))
         gs = fig.add_gridspec(4, 2)
         
@@ -332,16 +360,17 @@ if __name__ == '__main__':
         ax_limb_1 = image_plot(fig, name[1]+argmax2d(data_limb[1])[1], gs[2, 1], data_limb[1], data_limb[0], 0, 100, "")
         ax_center_0 = image_plot(fig, name[0]+argmax2d(data_center[0])[1], gs[1, 0], data_center[0], data_limb[0], 0, 100, "")
         ax_center_1 = image_plot(fig, name[1]+argmax2d(data_center[1])[1], gs[2, 0], data_center[1], data_limb[0], 0, 100, "")
-        ax_res_limb = image_plot(fig, angle_limb[2], gs[3, 1], diff_limb, diff_limb, 0, 100, "")
-        ax_res_center = image_plot(fig, angle_center[2], gs[3, 0], diff_center, diff_center, 0, 100, "")
+        ax_res_limb = image_plot(fig, angle_limb, gs[3, 1], diff_limb, diff_limb, 0, 100, "")
+        ax_res_center = image_plot(fig, angle_center, gs[3, 0], diff_center, diff_center, 0, 100, "")
         
         
         fig.tight_layout()
         
         picname = mkfolder("/"+folder_path[9:15]) + folder_path[16:26] + "_" + name[0] + "_" + name[1] + ".png"
         fig.savefig(picname)
+    
         
-        record = pd.Series([act_num, angle_limb[0], angle_limb[1], angle_center[0], angle_center[1]], index=df_res.columns)        
+        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad]), index = df_res.columns)
+        
         df_res = df_res.append(record, ignore_index=True)
-    """
-    #df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")
+    df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")
