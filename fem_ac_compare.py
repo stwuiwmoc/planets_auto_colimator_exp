@@ -72,12 +72,8 @@ if __name__ == '__main__':
     df_fem["perp_d"] = df_fem["perp_e"] - df_fem["perp_c"]
   
     for i in ["para", "perp"]:
-        for j  in ["_e", "_c"]:
-            df_ac[i+j+"_ebmin"] = df_ac[i+j] - df_ac[i+j+"_min"]
-            df_ac[i+j+"_ebmax"] = df_ac[i+j+"_max"] - df_ac[i+j]
         df_ac[i+"_d_ebmin"] = np.sqrt( df_ac[i+"_e_ebmin"]**2 + df_ac[i+"_c_ebmin"]**2 )
         df_ac[i+"_d_ebmax"] = np.sqrt( df_ac[i+"_e_ebmax"]**2 + df_ac[i+"_c_ebmax"]**2 )
-        
     
     fig1 = plt.figure(figsize=(10,15))
     gs1 = fig1.add_gridspec(5,2)
