@@ -90,14 +90,10 @@ def fits_interpolate(array_2d, magnification):
 def displace(Dx, Dy, Param):
     Dx = int(np.round(Dx))
     Dy = int(np.round(Dy))
-    Data = Param[0]
-    Magnification = Param[1]
-    Dlim = Param[2]
+    Data_0 = Param[0]
+    Data_1 = Param[1]
+    Subpx_lim = Param[2]
     
-    Data_0 = Data[0]
-    Data_1 = Data[1]
-    
-    Subpx_lim = int( Dlim * Magnification )
     if abs(Dx) > Subpx_lim:
         Dx = Subpx_lim
     if abs(Dy) > Subpx_lim:
@@ -199,7 +195,7 @@ def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
     """
     
     Param_res = [Param, OptimizeResult, Sigma_mgn]
-    Subpx_lim = int(Param[1] * Param[2])
+    Subpx_lim = Param[2]
     
     Xmin = sp.optimize.minimize(fun = error_x_func,
                                 x0 = ( OptimizeResult["x"][0] - 2 ), 
@@ -336,6 +332,8 @@ if __name__ == '__main__':
         data_mean = []
         data_e = []
         data_c = []
+        data_noise = []
+        data_noise_std = []
         
         for i in range(0, 2):
             folder_path = "raw_data/210423/ex10_act" + act_num + "_" + name[i] + "/*.FIT"
@@ -346,13 +344,14 @@ if __name__ == '__main__':
                 print("path_list is empty!")
                 sys.exit()
             
-            data_mean_temp = np.empty((px_v, px_h))
+            data_mean_temp = np.zeros((px_v, px_h))
             
             for path in path_list:
                 data = fits_2darray(path)
                 data_mean_temp = data + data_mean_temp
             
             data_mean_temp = data_mean_temp / len(path_list)
+            
             data_e_temp = data_clip(data_mean_temp, 50, 200, px_clip_width)
             data_c_temp = data_clip(data_mean_temp, 75, 0, px_clip_width)
             
@@ -360,6 +359,15 @@ if __name__ == '__main__':
             data_e.append(data_e_temp)
             data_c.append(data_c_temp)
             
+            ## read out noise -----------------------------------------------
+            data_noise_temp = np.zeros((px_v, px_h))
+            for path in path_list:
+                data = fits_2darray(path)
+                data_noise_temp = data_noise_temp + (data -data_mean_temp)**2
+            
+            data_noise_temp = np.sqrt( data_noise_temp / len(path_list) )
+            data_noise.append(data_noise_temp)
+            data_noise_std.append(np.std(data_noise_temp))
             
         ## interpolate ---------------------------------------------------------------  
         ip_e = [fits_interpolate(data_e[0], mgn), fits_interpolate(data_e[1], mgn)]
@@ -368,8 +376,8 @@ if __name__ == '__main__':
         data_diff = data_mean[1] - data_mean[0]
         
         ## minimize ----------------------------------------------------------------
-        param_e = [ip_e, mgn, px_lim]
-        param_c = [ip_c, mgn, px_lim]
+        param_e = ip_e + [subpx_lim]
+        param_c = ip_c + [subpx_lim]
         
         res_e = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_e), method="Powell") 
         res_c = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_c), method="Powell")        
