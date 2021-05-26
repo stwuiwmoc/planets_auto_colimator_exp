@@ -171,7 +171,8 @@ def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
 
     Returns
     -------
-    Result : list [x下限, x最小値, x上限, y下限, y最小値, y上限]
+    Result : list [x下限側eb長さ, x最小値, x上限側eb長さ,
+                   y下限側eb長さ, y最小値, y上限側eb長さ]
         x : parallel方向, y : perpendicular方向
         "最小値"は、inputの OptimizeResultで計算済みの、"fun"を最小にするような x ,y
     """
@@ -179,30 +180,35 @@ def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
     Param_res = [Param, OptimizeResult, Sigma_mgn]
     
     Xmin = sp.optimize.minimize(fun = error_x_func,
-                                x0 = ( OptimizeResult["x"][0] - 1 ), 
+                                x0 = ( OptimizeResult["x"][0] - 2 ), 
                                 args = (Param_res),
                                 constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][0] ) },
                                 method = "COBYLA")
  
     Xmax = sp.optimize.minimize(fun = error_x_func, 
-                                x0 = ( OptimizeResult["x"][0] + 1 ), 
+                                x0 = ( OptimizeResult["x"][0] + 2 ), 
                                 args = (Param_res),
                                 constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][0] ) },
                                 method = "COBYLA")
     
     Ymin = sp.optimize.minimize(fun = error_y_func,
-                                x0 = ( OptimizeResult["x"][1] - 1 ), 
+                                x0 = ( OptimizeResult["x"][1] - 2 ), 
                                 args = (Param_res),
                                 constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][1] ) },
                                 method = "COBYLA")
         
     Ymax = sp.optimize.minimize(fun = error_y_func, 
-                                x0 = ( OptimizeResult["x"][1] + 1 ), 
+                                x0 = ( OptimizeResult["x"][1] + 2 ), 
                                 args = (Param_res),
                                 constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][1] ) },
                                 method = "COBYLA")
     
-    Result = np.stack([Xmin["x"], OptimizeResult["x"][0], Xmax["x"], Ymin["x"], OptimizeResult["x"][1], Ymax["x"]])
+    X_mindiff = OptimizeResult["x"][0] - Xmin["x"]
+    X_maxdiff = Xmax["x"] - OptimizeResult["x"][0]
+    Y_mindiff = OptimizeResult["x"][1] - Ymin["x"]
+    Y_maxdiff = Ymax["x"] - OptimizeResult["x"][1]
+    
+    Result = np.stack([X_mindiff, OptimizeResult["x"][0], X_maxdiff, Y_mindiff, OptimizeResult["x"][1], Y_maxdiff])
     return Result
 
 def subpx2urad(Subpx):
@@ -290,22 +296,23 @@ if __name__ == '__main__':
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
     px_lim = int(30*mgn)
 
-    act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
-    #act_list = ["17"]
+    #act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
+    act_list = ["17"]
     
     df_cols = ["act",
-               "para_e_min", "para_e", "para_e_max",
-               "perp_e_min", "perp_e", "perp_e_max", 
-               "para_c_min", "para_c", "para_c_max", 
-               "perp_c_min", "perp_c", "perp_c_max" ]
+               "para_e_ebmin", "para_e", "para_e_ebmax",
+               "perp_e_ebmin", "perp_e", "perp_e_ebmax", 
+               "para_c_ebmin", "para_c", "para_c_ebmax", 
+               "perp_c_ebmin", "perp_c", "perp_c_ebmax",
+               "e_std", "c_std"]
     
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
     for act_num in act_list:
         print(act_num)
         data_mean = []
-        data_limb = []
-        data_center = []
+        data_e = []
+        data_c = []
         
         for i in range(0, 2):
             folder_path = "raw_data/210423/ex10_act" + act_num + "_" + name[i] + "/*.FIT"
@@ -325,43 +332,43 @@ if __name__ == '__main__':
             data_mean_temp = data_mean_temp / len(path_list)
             
             data_mean.append(data_mean_temp)
-            data_limb.append(data_mean_temp[100:100+px_old, 250:250+px_old])
-            data_center.append(data_mean_temp[100:100+px_old, 0:0+px_old])
+            data_e.append(data_mean_temp[100:100+px_old, 250:250+px_old])
+            data_c.append(data_mean_temp[100:100+px_old, 0:0+px_old])
             
         ## interpolate ---------------------------------------------------------------  
-        ip_limb = [fits_interpolate(data_limb[0], mgn), fits_interpolate(data_limb[1], mgn)]
-        ip_center = [fits_interpolate(data_center[0], mgn), fits_interpolate(data_center[1], mgn)]
+        ip_e = [fits_interpolate(data_e[0], mgn), fits_interpolate(data_e[1], mgn)]
+        ip_c = [fits_interpolate(data_c[0], mgn), fits_interpolate(data_c[1], mgn)]
         
         data_diff = data_mean[1] - data_mean[0]
         
         ## minimize ----------------------------------------------------------------
-        param_limb = [ip_limb, mgn, px_lim]
-        res_limb = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_limb,), method="Powell")
-        diff_limb = displace(res_limb["x"][0], res_limb["x"][1], param_limb)
+        param_e = [ip_e, mgn, px_lim]
+        res_e = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_e,), method="Powell")
+        diff_e = displace(res_e["x"][0], res_e["x"][1], param_e)
         
-        param_center = [ip_center, mgn, px_lim]
-        res_center = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_center,), method="Powell")
-        diff_center = displace(res_center["x"][0], res_center["x"][1], param_center)
+        param_c = [ip_c, mgn, px_lim]
+        res_c = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_c,), method="Powell")
+        diff_c = displace(res_c["x"][0], res_c["x"][1], param_c)
         ## error_bar ------------------------------------------------------------
         
-        eb_c_px = error_bar_bounds(param_center, res_center, 2)
-        eb_e_px = error_bar_bounds(param_limb, res_limb, 2)
+        eb_c_px = error_bar_bounds(param_c, res_c, 1.5)
+        eb_e_px = error_bar_bounds(param_e, res_e, 1.5)
         eb_c_urad = subpx2urad(eb_c_px)
         eb_e_urad = subpx2urad(eb_e_px)
-        angle_center = urad2title(eb_c_urad[1], eb_c_urad[4])
-        angle_limb = urad2title(eb_e_urad[1], eb_e_urad[4])
+        angle_c = urad2title(eb_c_urad[1], eb_c_urad[4])
+        angle_e = urad2title(eb_e_urad[1], eb_e_urad[4])
     
         ## for plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
         gs = fig.add_gridspec(4, 2)
         
         ax_diff = image_plot(fig, path[16:26], gs[0, 0:2], data_diff, data_diff, 0, 100, "")
-        ax_limb_0 = image_plot(fig, name[0]+argmax2d(data_limb[0])[1], gs[1, 1], data_limb[0], data_limb[0], 0, 100, "")
-        ax_limb_1 = image_plot(fig, name[1]+argmax2d(data_limb[1])[1], gs[2, 1], data_limb[1], data_limb[0], 0, 100, "")
-        ax_center_0 = image_plot(fig, name[0]+argmax2d(data_center[0])[1], gs[1, 0], data_center[0], data_limb[0], 0, 100, "")
-        ax_center_1 = image_plot(fig, name[1]+argmax2d(data_center[1])[1], gs[2, 0], data_center[1], data_limb[0], 0, 100, "")
-        ax_res_limb = image_plot(fig, angle_limb, gs[3, 1], diff_limb, diff_limb, 0, 100, "")
-        ax_res_center = image_plot(fig, angle_center, gs[3, 0], diff_center, diff_center, 0, 100, "")
+        ax_e_0 = image_plot(fig, name[0]+argmax2d(data_e[0])[1], gs[1, 1], data_e[0], data_e[0], 0, 100, "")
+        ax_e_1 = image_plot(fig, name[1]+argmax2d(data_e[1])[1], gs[2, 1], data_e[1], data_e[0], 0, 100, "")
+        ax_c_0 = image_plot(fig, name[0]+argmax2d(data_c[0])[1], gs[1, 0], data_c[0], data_e[0], 0, 100, "")
+        ax_c_1 = image_plot(fig, name[1]+argmax2d(data_c[1])[1], gs[2, 0], data_c[1], data_e[0], 0, 100, "")
+        ax_res_e = image_plot(fig, angle_e, gs[3, 1], diff_e, diff_e, 0, 100, "")
+        ax_res_c = image_plot(fig, angle_c, gs[3, 0], diff_c, diff_c, 0, 100, "")
         
         
         fig.tight_layout()
@@ -369,8 +376,8 @@ if __name__ == '__main__':
         picname = mkfolder("/"+folder_path[9:15]) + folder_path[16:26] + "_" + name[0] + "_" + name[1] + ".png"
         fig.savefig(picname)
     
-        
-        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad]), index = df_res.columns)
+        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.atleast_1d(res_e["fun"]), np.atleast_1d(res_c["fun"])]),
+                           index = df_res.columns)
         
         df_res = df_res.append(record, ignore_index=True)
     df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")

@@ -46,10 +46,12 @@ if __name__ == '__main__':
     px_lim = int(30*mgn)
 
     df_cols = ["act",
-               "para_e_min", "para_e", "para_e_max",
-               "perp_e_min", "perp_e", "perp_e_max", 
-               "para_c_min", "para_c", "para_c_max", 
-               "perp_c_min", "perp_c", "perp_c_max" ]
+               "para_e_ebmin", "para_e", "para_e_ebmax",
+               "perp_e_ebmin", "perp_e", "perp_e_ebmax", 
+               "para_c_ebmin", "para_c", "para_c_ebmax", 
+               "perp_c_ebmin", "perp_c", "perp_c_ebmax",
+               "e_std", "c_std"]
+    
     
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
@@ -120,7 +122,8 @@ if __name__ == '__main__':
         eb_c_urad = ac.subpx2urad(eb_c_px)
         angle_c = ac.urad2title(eb_c_urad[1], eb_c_urad[4])
         
-        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad]), index = df_res.columns)
+        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.atleast_1d(res_e["fun"]), np.atleast_1d(res_c["fun"])]),
+                           index = df_res.columns)
         df_res = df_res.append(record, ignore_index=True)
     
         
