@@ -98,6 +98,10 @@ def displace(Dx, Dy, Param):
     Data_1 = Data[1]
     
     Subpx_lim = int( Dlim * Magnification )
+    if abs(Dx) > Subpx_lim:
+        Dx = Subpx_lim
+    if abs(Dy) > Subpx_lim:
+        Dy = Subpx_lim
     
     S0min = Subpx_lim
     S0max = int(len(Data_0) - Subpx_lim) 
@@ -311,7 +315,7 @@ if __name__ == '__main__':
     name = ["-500", "+500"]
     px_v, px_h = 384, 512
     px_clip_width = 250 # 切り出すpx幅
-    px_lim = 25
+    px_lim = 50
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
     subpx_lim = int(px_lim * mgn)
     
@@ -364,19 +368,13 @@ if __name__ == '__main__':
         data_diff = data_mean[1] - data_mean[0]
         
         ## minimize ----------------------------------------------------------------
-        cons = ({"type":"ineq", "fun" : lambda x : x[0] - subpx_lim},
-                {"type":"ineq", "fun" : lambda x : subpx_lim - x[0]},
-                {"type":"ineq", "fun" : lambda x : x[1] - subpx_lim},
-                {"type":"ineq", "fun" : lambda x : subpx_lim - x[1]},)
-        
         param_e = [ip_e, mgn, px_lim]
-        res_e = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_e,),
-                                     constraints=cons, method="COBYLA")
-        diff_e = displace(res_e["x"][0], res_e["x"][1], param_e)
-        
         param_c = [ip_c, mgn, px_lim]
-        res_c = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_c,),
-                                     constraints=cons, method="COBYLA")
+        
+        res_e = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_e), method="Powell") 
+        res_c = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_c), method="Powell")        
+       
+        diff_e = displace(res_e["x"][0], res_e["x"][1], param_e)
         diff_c = displace(res_c["x"][0], res_c["x"][1], param_c)
         print(time.time() - start)
         ## error_bar ------------------------------------------------------------
@@ -397,9 +395,9 @@ if __name__ == '__main__':
         
         ax_5 = image_plot(fig, "-500", gs[0, 0], data_mean[0], data_mean[0])
         ax_0 = image_plot(fig, "+500", gs[0, 1], data_mean[1], data_mean[0])
-        ax_diff = image_plot(fig, "diff {-500} - {+500}", gs[1,0:2], data_diff, data_diff)
-        ax_res_e = image_plot(fig, angle_e, gs[2,0], diff_e, data_diff)
-        ax_res_c = image_plot(fig, angle_c, gs[2,1], diff_c, data_diff)
+        ax_diff = image_plot(fig, "diff {+500} - {-500}", gs[1,0:2], data_diff, data_diff)
+        ax_res_e = image_plot(fig, angle_e, gs[2,1], diff_e, data_diff)
+        ax_res_c = image_plot(fig, angle_c, gs[2,0], diff_c, data_diff)
         
         fig.tight_layout()
         
