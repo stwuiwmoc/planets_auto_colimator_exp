@@ -315,10 +315,11 @@ if __name__ == '__main__':
     
     name = ["-500", "+500"]
     px_v, px_h = 384, 512
-    px_old = 250 # 切り出すpx幅
+    px_clip_width = 250 # 切り出すpx幅
+    px_lim = 25
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
-    px_lim = int(30*mgn)
-
+    subpx_lim = px_lim * mgn
+    
     #act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
     act_list = ["17"]
     
@@ -353,8 +354,8 @@ if __name__ == '__main__':
                 data_mean_temp = data + data_mean_temp
             
             data_mean_temp = data_mean_temp / len(path_list)
-            data_e_temp = data_clip(data_mean_temp, 50, 200, px_old)
-            data_c_temp = data_clip(data_mean_temp, 75, 0, px_old)
+            data_e_temp = data_clip(data_mean_temp, 50, 200, px_clip_width)
+            data_c_temp = data_clip(data_mean_temp, 75, 0, px_clip_width)
             
             data_mean.append(data_mean_temp)
             data_e.append(data_e_temp)
