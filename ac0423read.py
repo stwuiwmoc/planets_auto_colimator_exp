@@ -56,7 +56,8 @@ def fits_interpolate(array_2d, magnification):
     x_new = y_new = np.linspace(0, range_max, range_max*magnification)
     xx_new, yy_new = np.meshgrid(x_new, y_new)
     zz_new = sp.interpolate.griddata(xy_old, z_old, (xx_new, yy_new), "cubic")
-    return zz_new
+    zz_new_nandrop = zz_new[:-magnification, :-magnification]
+    return zz_new_nandrop
 
 def displace(Dx, Dy, Param):
     """
@@ -292,7 +293,7 @@ if __name__ == '__main__':
     
     name = ["-500", "+500"]
     px_v, px_h = 384, 512
-    px_old = 150 # 切り出すpx幅
+    px_old = 250 # 切り出すpx幅
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
     px_lim = int(30*mgn)
 
@@ -360,15 +361,14 @@ if __name__ == '__main__':
     
         ## for plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
-        gs = fig.add_gridspec(4, 2)
+        gs = fig.add_gridspec(3,2)
+        fig.suptitle(folder_path[9:15] + " act" + act_num)
         
-        ax_diff = image_plot(fig, path[16:26], gs[0, 0:2], data_diff, data_diff, 0, 100, "")
-        ax_e_0 = image_plot(fig, name[0]+argmax2d(data_e[0])[1], gs[1, 1], data_e[0], data_e[0], 0, 100, "")
-        ax_e_1 = image_plot(fig, name[1]+argmax2d(data_e[1])[1], gs[2, 1], data_e[1], data_e[0], 0, 100, "")
-        ax_c_0 = image_plot(fig, name[0]+argmax2d(data_c[0])[1], gs[1, 0], data_c[0], data_e[0], 0, 100, "")
-        ax_c_1 = image_plot(fig, name[1]+argmax2d(data_c[1])[1], gs[2, 0], data_c[1], data_e[0], 0, 100, "")
-        ax_res_e = image_plot(fig, angle_e, gs[3, 1], diff_e, diff_e, 0, 100, "")
-        ax_res_c = image_plot(fig, angle_c, gs[3, 0], diff_c, diff_c, 0, 100, "")
+        ax_5 = image_plot(fig, "-500", gs[0, 0], data_mean[0], data_mean[0])
+        ax_0 = image_plot(fig, "+500", gs[0, 1], data_mean[1], data_mean[0])
+        ax_diff = image_plot(fig, "diff {-500} - {+500}", gs[1,0:2], data_diff, data_diff)
+        ax_res_e = image_plot(fig, angle_e, gs[2,0], diff_e, data_diff)
+        ax_res_c = image_plot(fig, angle_c, gs[2,1], diff_c, data_diff)
         
         
         fig.tight_layout()

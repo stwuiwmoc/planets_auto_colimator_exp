@@ -129,14 +129,14 @@ if __name__ == '__main__':
         
         ## plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
-        gs = fig.add_gridspec(4,2)
+        gs = fig.add_gridspec(3,2)
         fig.suptitle(folder_path[9:15] + " act" + act_num)
         
-        ax_5 = ac.image_plot(fig, "+500", gs[0, 0:2], data_mean[0], data_mean[0])
-        ax_0 = ac.image_plot(fig, "+000", gs[1, 0:2], data_mean[1], data_mean[0])
-        ax_diff = ac.image_plot(fig, "diff {+500} - {+000}", gs[2,0:2], data_diff, data_diff)
-        ax_res_e = ac.image_plot(fig, angle_e, gs[3,0], diff_e, data_diff)
-        ax_res_c = ac.image_plot(fig, angle_c, gs[3,1], diff_c, data_diff)
+        ax_5 = ac.image_plot(fig, "+500", gs[0, 0], data_mean[0], data_mean[0])
+        ax_0 = ac.image_plot(fig, "+000", gs[0, 1], data_mean[1], data_mean[0])
+        ax_diff = ac.image_plot(fig, "diff {+500} - {+000}", gs[1,0:2], data_diff, data_diff)
+        ax_res_e = ac.image_plot(fig, angle_e, gs[2,0], diff_e, data_diff)
+        ax_res_c = ac.image_plot(fig, angle_c, gs[2,1], diff_c, data_diff)
         
         fig.tight_layout()
         
