@@ -14,6 +14,7 @@ import glob
 import scipy.signal
 import sys
 import pandas as pd
+import time
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -85,26 +86,10 @@ def fits_interpolate(array_2d, magnification):
     zz_new_nandrop = zz_new[:-magnification, :-magnification]
     return zz_new_nandrop
 
+
 def displace(Dx, Dy, Param):
-    """
-    (Dx, Dy) で与えられたpx分 data_1 をずらし、差分とって標準偏差を計算
-
-    Parameters
-    ----------
-    Dx : int
-        x方向にずらすpx数を指定
-    Dy : int
-        y方向にずらすpx数を指定
-    Param : list
-        list [data_list, magnification, dlim]
-
-    Returns
-    -------
-    std : float
-        ずらす前後の差分についての標準偏差
-    """
-    Dx = np.round(Dx)
-    Dy = np.round(Dy)
+    Dx = int(np.round(Dx))
+    Dy = int(np.round(Dy))
     Data = Param[0]
     Magnification = Param[1]
     Dlim = Param[2]
@@ -112,16 +97,21 @@ def displace(Dx, Dy, Param):
     Data_0 = Data[0]
     Data_1 = Data[1]
     
-    ## ずらした部分にnp.nanが入らないように、ずらす最大値の分だけ周りを切り取る
-    S0x = S0y = slice( int(Dlim), int(len(Data_0)-(Dlim+Magnification)) )
-    ## dx, dyずらす を dx, dyずらして切り出す で対応
-    S1x = slice( int(Dlim+Dx), int(len(Data_0)+Dx-(Dlim+Magnification)) )
-    S1y = slice( int(Dlim+Dy), int(len(Data_0)+Dy-(Dlim+Magnification)) )
+    Subpx_lim = int( Dlim * Magnification )
     
-    Cut_0 = Data_0[S0x, S0y]
-    Cut_1 = Data_1[S1x, S1y]
+    S0min = Subpx_lim
+    S0max = int(len(Data_0) - Subpx_lim) 
+    
+    S1xmin = int(S0min - Dx)
+    S1xmax = int(S0max - Dx)
+    S1ymin = int(S0min - Dy)
+    S1ymax = int(S0max - Dy)
+    
+    Cut_0 = Data_0[S0min:S0max, S0min:S0max]
+    Cut_1 = Data_1[S1xmin:S1xmax, S1ymin:S1ymax]
     Diff = Cut_1 - Cut_0
     return Diff
+
 
 def std_func(X, param):
     """
@@ -205,29 +195,34 @@ def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
     """
     
     Param_res = [Param, OptimizeResult, Sigma_mgn]
+    Subpx_lim = int(Param[1] * Param[2])
     
     Xmin = sp.optimize.minimize(fun = error_x_func,
                                 x0 = ( OptimizeResult["x"][0] - 2 ), 
                                 args = (Param_res),
-                                constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][0] ) },
+                                constraints = ({"type" : "ineq", "fun" : lambda x : - ( x - OptimizeResult["x"][0] ) },
+                                               {"type" : "ineq", "fun" : lambda x : x + Subpx_lim }),
                                 method = "COBYLA")
  
     Xmax = sp.optimize.minimize(fun = error_x_func, 
                                 x0 = ( OptimizeResult["x"][0] + 2 ), 
                                 args = (Param_res),
-                                constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][0] ) },
+                                constraints = ({"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][0] ) },
+                                               {"type" : "ineq", "fun" : lambda x : Subpx_lim - x }),
                                 method = "COBYLA")
     
     Ymin = sp.optimize.minimize(fun = error_y_func,
                                 x0 = ( OptimizeResult["x"][1] - 2 ), 
                                 args = (Param_res),
-                                constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][1] ) },
+                                constraints = ({"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][1] ) },
+                                               {"type" : "ineq", "fun" : lambda x : x + Subpx_lim }),
                                 method = "COBYLA")
         
     Ymax = sp.optimize.minimize(fun = error_y_func, 
                                 x0 = ( OptimizeResult["x"][1] + 2 ), 
                                 args = (Param_res),
-                                constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][1] ) },
+                                constraints = ({"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][1] ) },
+                                               {"type" : "ineq", "fun" : lambda x : Subpx_lim - x }),
                                 method = "COBYLA")
     
     X_mindiff = OptimizeResult["x"][0] - Xmin["x"]
@@ -312,13 +307,13 @@ def image_plot(fig, title, position, c, c_scale, min_per=0, max_per=100, cbar_ti
     return ax
 
 if __name__ == '__main__':
-    
+    start = time.time()
     name = ["-500", "+500"]
     px_v, px_h = 384, 512
     px_clip_width = 250 # 切り出すpx幅
     px_lim = 25
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
-    subpx_lim = px_lim * mgn
+    subpx_lim = int(px_lim * mgn)
     
     #act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
     act_list = ["17"]
@@ -369,21 +364,31 @@ if __name__ == '__main__':
         data_diff = data_mean[1] - data_mean[0]
         
         ## minimize ----------------------------------------------------------------
+        cons = ({"type":"ineq", "fun" : lambda x : x[0] - subpx_lim},
+                {"type":"ineq", "fun" : lambda x : subpx_lim - x[0]},
+                {"type":"ineq", "fun" : lambda x : x[1] - subpx_lim},
+                {"type":"ineq", "fun" : lambda x : subpx_lim - x[1]},)
+        
         param_e = [ip_e, mgn, px_lim]
-        res_e = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_e,), method="Powell")
+        res_e = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_e,),
+                                     constraints=cons, method="COBYLA")
         diff_e = displace(res_e["x"][0], res_e["x"][1], param_e)
         
         param_c = [ip_c, mgn, px_lim]
-        res_c = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_c,), method="Powell")
+        res_c = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_c,),
+                                     constraints=cons, method="COBYLA")
         diff_c = displace(res_c["x"][0], res_c["x"][1], param_c)
+        print(time.time() - start)
         ## error_bar ------------------------------------------------------------
         
         eb_c_px = error_bar_bounds(param_c, res_c, 1.5)
         eb_e_px = error_bar_bounds(param_e, res_e, 1.5)
         eb_c_urad = subpx2urad(eb_c_px)
         eb_e_urad = subpx2urad(eb_e_px)
+        
         angle_c = urad2title(eb_c_urad[1], eb_c_urad[4])
         angle_e = urad2title(eb_e_urad[1], eb_e_urad[4])
+        print(time.time() - start)
     
         ## for plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
