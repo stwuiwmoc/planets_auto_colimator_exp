@@ -43,6 +43,32 @@ def fits_2darray(path):
     data = pic.data
     return data
 
+def data_clip(Data, Vmin, Hmin, Width):
+    """
+    データをcenter と edge に切り取る
+
+    Parameters
+    ----------
+    Data : 2d_array of float
+        DESCRIPTION.
+    Vmin : int
+        vartical (y-axis) px min
+    Hmin : int
+        horizontal (x-axis) px min
+    Width : int
+        clip width
+
+    Returns
+    -------
+    Cliped : 2d_array of float
+        size : Width * Width
+
+    """
+    Vmax = Vmin + Width
+    Hmax = Hmin + Width
+    Cliped = Data[Vmin:Vmax, Hmin:Hmax]
+    return Cliped
+
 def fits_interpolate(array_2d, magnification): 
     range_max = len(array_2d)
     
@@ -263,10 +289,6 @@ def urad2title(Tilt_urad_x, Tilt_urad_y):
     Title = r"( $\Delta$para, $\Delta$perp ) = ( " + Str_para + " , " + Str_perp + " ) [micro rad]"
     return Title
 
-def argmax2d(ndim_array):
-    idx = np.unravel_index(np.argmax(ndim_array), ndim_array.shape)
-    return idx, str(idx)
-
 def image_plot(fig, title, position, c, c_scale, min_per=0, max_per=100, cbar_title=""):
     cmap1 = cm.jet
     fs = 10
@@ -331,10 +353,13 @@ if __name__ == '__main__':
                 data_mean_temp = data + data_mean_temp
             
             data_mean_temp = data_mean_temp / len(path_list)
+            data_e_temp = data_clip(data_mean_temp, 50, 200, px_old)
+            data_c_temp = data_clip(data_mean_temp, 75, 0, px_old)
             
             data_mean.append(data_mean_temp)
-            data_e.append(data_mean_temp[100:100+px_old, 250:250+px_old])
-            data_c.append(data_mean_temp[100:100+px_old, 0:0+px_old])
+            data_e.append(data_e_temp)
+            data_c.append(data_c_temp)
+            
             
         ## interpolate ---------------------------------------------------------------  
         ip_e = [fits_interpolate(data_e[0], mgn), fits_interpolate(data_e[1], mgn)]
@@ -369,7 +394,6 @@ if __name__ == '__main__':
         ax_diff = image_plot(fig, "diff {-500} - {+500}", gs[1,0:2], data_diff, data_diff)
         ax_res_e = image_plot(fig, angle_e, gs[2,0], diff_e, data_diff)
         ax_res_c = image_plot(fig, angle_c, gs[2,1], diff_c, data_diff)
-        
         
         fig.tight_layout()
         
