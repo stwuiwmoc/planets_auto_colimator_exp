@@ -316,7 +316,7 @@ if __name__ == '__main__':
     name = ["-500", "+500"]
     px_v, px_h = 384, 512
     px_clip_width = 250 # 切り出すpx幅
-    px_lim = 25
+    px_lim = 300
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
     subpx_lim = px_lim * mgn
     
