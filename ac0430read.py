@@ -45,7 +45,12 @@ if __name__ == '__main__':
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
     px_lim = int(30*mgn)
 
-    df_cols = ["act", "para_e", "perp_e", "para_c", "perp_c"]
+    df_cols = ["act",
+               "para_e_min", "para_e", "para_e_max",
+               "perp_e_min", "perp_e", "perp_e_max", 
+               "para_c_min", "para_c", "para_c_max", 
+               "perp_c_min", "perp_c", "perp_c_max" ]
+    
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
     folder_path = "raw_data/210430/**"
@@ -63,7 +68,7 @@ if __name__ == '__main__':
     """
     folder_list = folder_list_raw[2:-2]
     
-    for i in range(1):
+    for i in range(36):
         act_num = str(i+1).zfill(2)
         print(act_num)
         
@@ -101,14 +106,21 @@ if __name__ == '__main__':
         param_e = [ip_e, mgn, px_lim]
         res_e = sp.optimize.minimize(fun=ac.std_func, x0=(0,0), args=(param_e, ), method="Powell")
         diff_e = ac.displace(res_e["x"][0], res_e["x"][1], param_e)
-        angle_e = ac.px2urad(res_e["x"])
         
         param_c = [ip_c, mgn, px_lim]
         res_c = sp.optimize.minimize(fun=ac.std_func, x0=(0,0), args=(param_c, ), method="Powell")
         diff_c = ac.displace(res_c["x"][0], res_c["x"][1], param_c)
-        angle_c = ac.px2urad(res_c["x"])
         
-        record = pd.Series([act_num, angle_e[0], angle_e[1], angle_c[0], angle_c[1]], index=df_res.columns)        
+        ## error_bar ---------------------------------------------------------
+        eb_e_px = ac.error_bar_bounds(param_e, res_e, 2)
+        eb_e_urad = ac.subpx2urad(eb_e_px)
+        angle_e = ac.urad2title(eb_e_urad[1], eb_e_urad[4])
+
+        eb_c_px = ac.error_bar_bounds(param_c, res_c, 2)
+        eb_c_urad = ac.subpx2urad(eb_c_px)
+        angle_c = ac.urad2title(eb_c_urad[1], eb_c_urad[4])
+        
+        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad]), index = df_res.columns)
         df_res = df_res.append(record, ignore_index=True)
     
         
@@ -120,8 +132,8 @@ if __name__ == '__main__':
         ax_5 = ac.image_plot(fig, "+500", gs[0, 0:2], data_mean[0], data_mean[0])
         ax_0 = ac.image_plot(fig, "+000", gs[1, 0:2], data_mean[1], data_mean[0])
         ax_diff = ac.image_plot(fig, "diff {+500} - {+000}", gs[2,0:2], data_diff, data_diff)
-        ax_res_e = ac.image_plot(fig, angle_e[2], gs[3,0], diff_e, data_diff)
-        ax_res_c = ac.image_plot(fig, angle_c[2], gs[3,1], diff_c, data_diff)
+        ax_res_e = ac.image_plot(fig, angle_e, gs[3,0], diff_e, data_diff)
+        ax_res_c = ac.image_plot(fig, angle_c, gs[3,1], diff_c, data_diff)
         
         fig.tight_layout()
         
@@ -129,5 +141,5 @@ if __name__ == '__main__':
         fig.savefig(picname)
     
     csvname = mkfolder("/"+folder_path[9:15]) + "act01_36.csv"
-    #df_res.to_csv(csvname, index=False)
+    df_res.to_csv(csvname, index=False)
     print(time.time()-start)
