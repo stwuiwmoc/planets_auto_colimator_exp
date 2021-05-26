@@ -28,7 +28,6 @@ def mkfolder(suffix = ""):
     folder = "mkfolder/" + filename + "/"
     os.makedirs(folder, exist_ok=True)
     return folder
-
 def act_plot(Fig, Title, Position, Black=False, Blue=False, Red=False, Orange=False, Green=False):
     
     Color_list = ["black", "blue", "red", "orangered", "green"]
@@ -42,7 +41,15 @@ def act_plot(Fig, Title, Position, Black=False, Blue=False, Red=False, Orange=Fa
         
         if not Data == False:
             Df, Key = Data
-            Ax.plot(Df["act"], Df[Key], c=Color)
+            
+            if len(Df.columns) == 7: # つまり df_fem を使っている場合
+                Ax.plot(Df["act"], Df[Key], c=Color)
+            
+            else: # つまり df_ac を使っている場合
+                Key_min = Key + "_ebmin"
+                Key_max = Key + "_ebmax"
+                Ax.errorbar(Df["act"], Df[Key], c=Color, 
+                            yerr=[Df[Key_min].values, Df[Key_max].values])
     
     Ax.set_title(Title)
     Ax.set_ylabel("Tilt [micro rad]")
@@ -60,8 +67,17 @@ if __name__ == '__main__':
     
     df_ac["para_d"] = df_ac["para_e"] - df_ac["para_c"]
     df_ac["perp_d"] = df_ac["perp_e"] - df_ac["perp_c"]
+    
     df_fem["para_d"] = df_fem["para_e"] - df_fem["para_c"]
     df_fem["perp_d"] = df_fem["perp_e"] - df_fem["perp_c"]
+  
+    for i in ["para", "perp"]:
+        for j  in ["_e", "_c"]:
+            df_ac[i+j+"_ebmin"] = df_ac[i+j] - df_ac[i+j+"_min"]
+            df_ac[i+j+"_ebmax"] = df_ac[i+j+"_max"] - df_ac[i+j]
+        df_ac[i+"_d_ebmin"] = np.sqrt( df_ac[i+"_e_ebmin"]**2 + df_ac[i+"_c_ebmin"]**2 )
+        df_ac[i+"_d_ebmax"] = np.sqrt( df_ac[i+"_e_ebmax"]**2 + df_ac[i+"_c_ebmax"]**2 )
+        
     
     fig1 = plt.figure(figsize=(10,15))
     gs1 = fig1.add_gridspec(5,2)
@@ -116,5 +132,4 @@ if __name__ == '__main__':
     fig2.tight_layout()
     picname2 = mkfolder() + fname_ac[20:26] + "ver2.png"
     fig2.savefig(picname2)
-    
-    
+    print("finish")
