@@ -75,39 +75,9 @@ if __name__ == '__main__':
         df_ac[i+"_d_ebmin"] = np.sqrt( df_ac[i+"_e_ebmin"]**2 + df_ac[i+"_c_ebmin"]**2 )
         df_ac[i+"_d_ebmax"] = np.sqrt( df_ac[i+"_e_ebmax"]**2 + df_ac[i+"_c_ebmax"]**2 )
     
-    fig1 = plt.figure(figsize=(10,15))
-    gs1 = fig1.add_gridspec(5,2)
-    fig1.suptitle("Left : Perpendicular to Optical Path  |  Right : Parallel to Optical Path\n")
-    
-    ax_acpp = act_plot(fig1, "Blue : AC(center), Red : AC(edge)", gs1[0,0]
-                       , False, [df_ac, "perp_c"], [df_ac, "perp_e"])
-    ax_acpr = act_plot(fig1, "Blue : AC(center), Red : AC(edge)", gs1[0,1]
-                       , False, [df_ac, "para_c"], [df_ac, "para_e"])
-    ax_acppd = act_plot(fig1, "dAC (Edge - Center)", gs1[1,0]
-                        , [df_ac, "perp_d"])
-    ax_acprd = act_plot(fig1, "dAC (Edge - Center)", gs1[1,1]
-                        , [df_ac, "para_d"])
-    
-    ax_fempp = act_plot(fig1, "Blue : FEM(center), Red : FEM(edge)", gs1[2,0]
-                        , False, [df_fem, "perp_c"], [df_fem, "perp_e"])
-    ax_fempr = act_plot(fig1, "Blue : FEM(center), Red : FEM(edge)", gs1[2,1]
-                        , False, [df_fem, "para_c"], [df_fem, "para_e"])
-    ax_femppd = act_plot(fig1, "dFEM (Edge - Center)", gs1[3,0]
-                         , [df_fem, "perp_d"])
-    ax_femprd = act_plot(fig1, "dFEM (Edge - Center)", gs1[3,1]
-                         , [df_fem, "para_d"])
-    
-    ax_ppd = act_plot(fig1, "Blue : dAC, Red : dFEM", gs1[4,0]
-                      , False, [df_ac, "perp_d"], [df_fem, "perp_d"])
-    ax_prd = act_plot(fig1, "Blue : dAC, Red : dFEM", gs1[4,1]
-                      , False, [df_ac, "para_d"], [df_fem, "para_d"])
-    
-    fig1.tight_layout()
-    picname1 = mkfolder() + fname_ac[20:26] + ".png"
-    fig1.savefig(picname1)
     
     fig2 = plt.figure(figsize=(10,10))
-    gs2 = fig1.add_gridspec(3,2)
+    gs2 = fig2.add_gridspec(3,2)
     fig2.suptitle("Left : Perpendicular to Optical Path  |  Right : Parallel to Optical Path\n")
     
     ax_acpp2 = act_plot(fig2, "Blue : AC(center), Red : AC(edge)\nGreen : dAC (Edge - Center)", gs2[0,0]
