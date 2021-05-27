@@ -60,10 +60,14 @@ def act_plot(Fig, Title, Position, Black=False, Blue=False, Red=False, Orange=Fa
 
 if __name__ == '__main__':
     #fname_ac = "mkfolder/fits_correlation/210423/ex10.csv"
-    fname_ac = "mkfolder/ac0430read/210430/act01_36.csv"
+    #fname_ac = "mkfolder/ac0430read/210430/act01_36.csv"
+    fname_ac = "mkfolder/ac0507_exwh22read/210507/act01_36.csv"
     fname_fem = "mkfolder/stick_pass_angle/fem_angle.csv"
     df_ac = pd.read_csv(fname_ac)
     df_fem = pd.read_csv(fname_fem, index_col=0)
+    
+    # -500, +500 の場合
+    df_fem.iloc[:, df_fem.columns!="act"] = df_fem.iloc[:, df_fem.columns!="act"] * 2
     
     df_ac["para_d"] = df_ac["para_e"] - df_ac["para_c"]
     df_ac["perp_d"] = df_ac["perp_e"] - df_ac["perp_c"]
@@ -96,6 +100,6 @@ if __name__ == '__main__':
                       , False, False, False, [df_fem, "para_d"], [df_ac, "para_d"])
     
     fig2.tight_layout()
-    picname2 = mkfolder() + fname_ac[20:26] + "ver2.png"
+    picname2 = mkfolder() + fname_ac[-19:-13] + "ver2.png"
     fig2.savefig(picname2)
     print("finish")
