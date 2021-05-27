@@ -179,7 +179,7 @@ def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
     
     Parameters
     ----------
-    Param : list [data_list, magnification, dlim]
+    Param : list [data_0, data_1, subpx_lim]
         DESCRIPTION.
     OptimizeResult : Object
         DESCRIPTION.
@@ -315,15 +315,15 @@ if __name__ == '__main__':
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
     subpx_lim = int(px_lim * mgn)
     
-    #act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
-    act_list = ["17"]
+    act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
+    #act_list = ["17"]
     
     df_cols = ["act",
                "para_e_ebmin", "para_e", "para_e_ebmax",
                "perp_e_ebmin", "perp_e", "perp_e_ebmax", 
                "para_c_ebmin", "para_c", "para_c_ebmax", 
                "perp_c_ebmin", "perp_c", "perp_c_ebmax",
-               "e_std", "c_std"]
+               "e_std", "c_std", "noise"]
     
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
@@ -368,7 +368,9 @@ if __name__ == '__main__':
             data_noise_temp = np.sqrt( data_noise_temp / len(path_list) )
             data_noise.append(data_noise_temp)
             data_noise_std.append(np.std(data_noise_temp))
-            
+        
+        data_noise_std.append(np.sqrt(data_noise_std[0]**2+data_noise_std[1]**2))
+        
         ## interpolate ---------------------------------------------------------------  
         ip_e = [fits_interpolate(data_e[0], mgn), fits_interpolate(data_e[1], mgn)]
         ip_c = [fits_interpolate(data_c[0], mgn), fits_interpolate(data_c[1], mgn)]
@@ -385,6 +387,7 @@ if __name__ == '__main__':
         diff_e = displace(res_e["x"][0], res_e["x"][1], param_e)
         diff_c = displace(res_c["x"][0], res_c["x"][1], param_c)
         print(time.time() - start)
+        
         ## error_bar ------------------------------------------------------------
         
         eb_c_px = error_bar_bounds(param_c, res_c, 1.5)
@@ -395,6 +398,9 @@ if __name__ == '__main__':
         angle_c = urad2title(eb_c_urad[1], eb_c_urad[4])
         angle_e = urad2title(eb_e_urad[1], eb_e_urad[4])
         print(time.time() - start)
+    
+          
+    
     
         ## for plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
@@ -412,8 +418,9 @@ if __name__ == '__main__':
         picname = mkfolder("/"+folder_path[9:15]) + folder_path[16:26] + "_" + name[0] + "_" + name[1] + ".png"
         fig.savefig(picname)
     
-        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.atleast_1d(res_e["fun"]), np.atleast_1d(res_c["fun"])]),
+        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.array([res_e["fun"], res_c["fun"], data_noise_std[2]])]),
                            index = df_res.columns)
         
         df_res = df_res.append(record, ignore_index=True)
+        
     df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")

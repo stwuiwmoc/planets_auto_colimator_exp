@@ -42,16 +42,17 @@ def mkfolder(suffix = ""):
 if __name__ == '__main__':
     start = time.time()
     px_v, px_h = 384, 512
-    px_clip_width = 250
+    px_clip_width = 250 
+    px_lim = 50
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
-    px_lim = int(30*mgn)
+    subpx_lim = int(px_lim * mgn)
 
     df_cols = ["act",
                "para_e_ebmin", "para_e", "para_e_ebmax",
                "perp_e_ebmin", "perp_e", "perp_e_ebmax", 
                "para_c_ebmin", "para_c", "para_c_ebmax", 
                "perp_c_ebmin", "perp_c", "perp_c_ebmax",
-               "e_std", "c_std"]
+               "e_std", "c_std", "noise"]
     
     
     df_res = pd.DataFrame(index=[], columns=df_cols)
@@ -80,6 +81,8 @@ if __name__ == '__main__':
         data_c = [] # center
         ip_e = []
         ip_c = []
+        data_noise = []
+        data_noise_std = []
         
         for j in range(2): # j=0 : +500 / j=1 : +000
             
@@ -99,21 +102,34 @@ if __name__ == '__main__':
             data_e.append(data_e_temp)
             data_c.append(data_c_temp)
             
+            ## read out noise -----------------------------------------------
+            data_noise_temp = np.zeros((px_v, px_h))
+            for path in path_list:
+                data = ac.fits_2darray(path)
+                data_noise_temp = data_noise_temp + (data -data_mean_temp)**2
+            
+            data_noise_temp = np.sqrt( data_noise_temp / len(path_list) )
+            data_noise.append(data_noise_temp)
+            data_noise_std.append(np.std(data_noise_temp))
+            
             ## interpolate ---------------------------------------------------
             ip_e.append(ac.fits_interpolate(data_e_temp, mgn))
             ip_c.append(ac.fits_interpolate(data_c_temp, mgn))
         
         data_diff = data_mean[1] - data_mean[0]
+        data_noise_std.append(np.sqrt(data_noise_std[0]**2+data_noise_std[1]**2))
+        
         
         ## minimize ----------------------------------------------------------
-        param_e = [ip_e, mgn, px_lim]
+        param_e = ip_e + [subpx_lim]
+        param_c = ip_c + [subpx_lim]
+        
         res_e = sp.optimize.minimize(fun=ac.std_func, x0=(0,0), args=(param_e, ), method="Powell")
-        diff_e = ac.displace(res_e["x"][0], res_e["x"][1], param_e)
-        
-        param_c = [ip_c, mgn, px_lim]
         res_c = sp.optimize.minimize(fun=ac.std_func, x0=(0,0), args=(param_c, ), method="Powell")
-        diff_c = ac.displace(res_c["x"][0], res_c["x"][1], param_c)
         
+        diff_e = ac.displace(res_e["x"][0], res_e["x"][1], param_e)
+        diff_c = ac.displace(res_c["x"][0], res_c["x"][1], param_c)
+
         ## error_bar ---------------------------------------------------------
         eb_e_px = ac.error_bar_bounds(param_e, res_e, 2)
         eb_e_urad = ac.subpx2urad(eb_e_px)
@@ -123,9 +139,10 @@ if __name__ == '__main__':
         eb_c_urad = ac.subpx2urad(eb_c_px)
         angle_c = ac.urad2title(eb_c_urad[1], eb_c_urad[4])
         
-        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.atleast_1d(res_e["fun"]), np.atleast_1d(res_c["fun"])]),
-                           index = df_res.columns)
-        df_res = df_res.append(record, ignore_index=True)
+        record = np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.array([res_e["fun"], res_c["fun"], data_noise_std[2]])])
+        
+        df_res = df_res.append(pd.Series(record, index = df_res.columns), 
+                               ignore_index=True)
     
         
         ## plot --------------------------------------------------------------
