@@ -130,6 +130,7 @@ if __name__ == '__main__':
         diff_e = ac.displace(res_e["x"][0], res_e["x"][1], param_e)
         diff_c = ac.displace(res_c["x"][0], res_c["x"][1], param_c)
        
+        print(time.time()-start)
         ## error_bar ---------------------------------------------------------
         err_size, err_mgn = 20, 0.05
         x_err_e, y_err_e, eb_e_px = ac.error_xy_loop(res_e, param_e, err_size, err_mgn, data_noise_std[2])
@@ -145,23 +146,29 @@ if __name__ == '__main__':
         
         df_res = df_res.append(pd.Series(record, index = df_res.columns), 
                                ignore_index=True)
+
+        print(time.time()-start)
         
         ## plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
-        gs = fig.add_gridspec(4,2)
+        gs = fig.add_gridspec(5,2)
         fig.suptitle(folder_path[9:15] + " act" + act_num)
         
-        ax_5 = ac.image_plot(fig, "+500", gs[0, 0:2], data_mean[0], data_mean[0])
-        ax_0 = ac.image_plot(fig, "-500", gs[1, 0:2], data_mean[1], data_mean[0])
-        ax_diff = ac.image_plot(fig, "diff {+500} - {-500}", gs[2,0:2], data_diff, data_diff)
-        ax_res_e = ac.image_plot(fig, angle_e, gs[3,0], diff_e, data_diff)
-        ax_res_c = ac.image_plot(fig, angle_c, gs[3,1], diff_c, data_diff)
+        ax_5 = ac.image_plot(fig, "+500", gs[0, 0], data_mean[0], data_mean[0])
+        ax_0 = ac.image_plot(fig, "-500", gs[0, 1], data_mean[1], data_mean[0])
+        ax_diff = ac.image_plot(fig, "diff {+500} - {-500}", gs[1,0:2], data_diff, data_diff)
+        ax_res_e = ac.image_plot(fig, angle_e, gs[2,0], diff_e, data_diff)
+        ax_res_c = ac.image_plot(fig, angle_c, gs[2,1], diff_c, data_diff)
+        
+        ax_err_xe = ac.err_plot(fig, "xe", gs[3, 0], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_ye = ac.err_plot(fig, "ye", gs[4, 0], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_xc = ac.err_plot(fig, "xc", gs[3, 1], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_yc = ac.err_plot(fig, "yc", gs[4, 1], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
         
         fig.tight_layout()
         
         picname = mkfolder("/"+folder_path[9:15]) + "act" + act_num + ".png"
         fig.savefig(picname)
-        fig.show()
         fig.clf()
     
     csvname = mkfolder("/"+folder_path[9:15]) + "act01_36.csv"
@@ -170,4 +177,3 @@ if __name__ == '__main__':
     else:    
         df_res.to_csv(csvname, index=False)
     
-    print(time.time()-start)
