@@ -46,11 +46,10 @@ def act_plot(Fig, Title, Position, Black=False, Blue=False, Red=False, Orange=Fa
                 Ax.plot(Df["act"], Df[Key], c=Color)
             
             else: # つまり df_ac を使っている場合
-                Key_min = Key + "_ebmin"
-                Key_max = Key + "_ebmax"
+                Key_eb = Key + "_eb"
                 Ax.errorbar(Df["act"], Df[Key], c=Color, 
-                            yerr=[Df[Key_min].values, Df[Key_max].values])
-    
+                            yerr=Df[Key_eb], elinewidth=0.5, capsize=2)
+                
     Ax.set_title(Title)
     Ax.set_ylabel("Tilt [micro rad]")
     Ax.set_xlabel("Act01 ~ Act36")
@@ -60,24 +59,25 @@ def act_plot(Fig, Title, Position, Black=False, Blue=False, Red=False, Orange=Fa
 
 if __name__ == '__main__':
     #fname_ac = "mkfolder/fits_correlation/210423/ex10.csv"
-    #fname_ac = "mkfolder/ac0430read/210430/act01_36.csv"
-    fname_ac = "mkfolder/ac0507_exwh22read/210507/act01_36.csv"
+    fname_ac = "mkfolder/ac0430read/210430/act01_36.csv"
+    #fname_ac = "mkfolder/ac0507_exwh22read/210507/act01_36.csv"
     fname_fem = "mkfolder/stick_pass_angle/fem_angle.csv"
     df_ac = pd.read_csv(fname_ac)
     df_fem = pd.read_csv(fname_fem, index_col=0)
     
     # -500, +500 の場合
-    df_fem.iloc[:, df_fem.columns!="act"] = df_fem.iloc[:, df_fem.columns!="act"] * 2
-    
+    #df_fem.iloc[:, df_fem.columns!="act"] = df_fem.iloc[:, df_fem.columns!="act"] * 2
+    """
     df_ac["para_d"] = df_ac["para_e"] - df_ac["para_c"]
     df_ac["perp_d"] = df_ac["perp_e"] - df_ac["perp_c"]
     
     df_fem["para_d"] = df_fem["para_e"] - df_fem["para_c"]
     df_fem["perp_d"] = df_fem["perp_e"] - df_fem["perp_c"]
-  
+    """
     for i in ["para", "perp"]:
-        df_ac[i+"_d_ebmin"] = np.sqrt( df_ac[i+"_e_ebmin"]**2 + df_ac[i+"_c_ebmin"]**2 )
-        df_ac[i+"_d_ebmax"] = np.sqrt( df_ac[i+"_e_ebmax"]**2 + df_ac[i+"_c_ebmax"]**2 )
+        df_ac[i+"_d"] = df_ac[i+"_e"] - df_ac[i+"_c"]
+        df_fem[i+"_d"] = df_fem[i+"_e"] - df_fem[i+"_c"]
+        df_ac[i+"_d_eb"] = np.sqrt( df_ac[i+"_e_eb"]**2 + df_ac[i+"_c_eb"]**2 )
     
     
     fig2 = plt.figure(figsize=(10,10))

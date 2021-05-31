@@ -88,6 +88,24 @@ def fits_interpolate(array_2d, magnification):
 
 
 def displace(Dx, Dy, Param):
+    """
+    
+
+    Parameters
+    ----------
+    Dx : int
+        subpx
+    Dy : int
+        subpx
+    Param : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    Diff : TYPE
+        2d_array
+
+    """
     Dx = int(np.round(Dx))
     Dy = int(np.round(Dy))
     Data_0 = Param[0]
@@ -112,7 +130,6 @@ def displace(Dx, Dy, Param):
     Diff = Cut_1 - Cut_0
     return Diff
 
-
 def std_func(X, param):
     """
     X = (dx, dy) で与えられたpx分 data_1 をずらし、差分とって標準偏差を計算
@@ -133,105 +150,23 @@ def std_func(X, param):
     std = np.std(diff)
     return std
 
-def error_x_func(X, Param_res):
-    """
-    paramで与えられた y は固定で、Xをずらして標準偏差を計算
-
-    Parameters
-    ----------
-    X : float (not tuple)
-        x方向にずらすpx数を指定
-    Param_res : list [[data_list, magnification, dlim], OptimizeResult, sigma_mgn]
-        sigma_mgnは標準偏差に対するエラーバーの長さ
-
-    Returns
-    -------
-    Std : TYPE
-        DESCRIPTION.
-
-    """
+def error_xy_loop(OptimizeResult, Param, Err_size, Err_mgn, Std_noise):
+    Xopt, Yopt = OptimizeResult["x"]
+    Std_opt = OptimizeResult["fun"]
+    Xerr = np.empty(Err_size)
+    Yerr = np.empty(Err_size)
+    for i in range(Err_size):
+        Xi = Xopt + i - Err_size/2
+        Yi = Yopt + i - Err_size/2
+        Xerr[i] = np.std(displace(Xi, Yopt, Param))
+        Yerr[i] = np.std(displace(Xopt, Yi, Param))
     
-    Param = Param_res[0]
-    Opresult = Param_res[1]
-    Sigma_mgn = Param_res[2]
+    Threshold = Std_opt + (Std_opt - Std_noise) * Err_mgn
+    Xeb = np.sum(np.where(Xerr<Threshold, 1, 0))
+    Yeb = np.sum(np.where(Yerr<Threshold, 1, 0))
+    Result = np.array([Xopt, Xeb, Yopt, Yeb])
     
-    Diff = displace(X, Opresult["x"][1], Param)
-    Std = np.std(Diff)
-    Result = abs( Std - Sigma_mgn * Opresult["fun"])
-    return Result
-
-def error_y_func(Y, Param_res):
-    Param = Param_res[0]
-    Opresult = Param_res[1]
-    Sigma_mgn = Param_res[2]
-    Diff = displace(Opresult["x"][0], Y, Param)
-    Std = np.std(Diff)
-    Result = abs( Std - Sigma_mgn * Opresult["fun"])
-    return Result
-
-def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
-    """
-    x, yについて error barの最大値と最小値を、制約付き最小化で求めるためのラッパー
-    OptimizeResultで求めた標準偏差の最小値 ["fun"] に対して、 fun*sigma_mgn を閾値として、標準偏差がfun*sigma_mgnまでの範囲をエラーバーとする
-    例） OptimizeResult["fun"] = 796, OptimizeResult["x"] = (4.9, -67.7), Sigma_mgn = 2であるとき
-    x方向のエラーバー -> y=-67.7に固定して fun = 796*2 になる x を探す
-    この時、エラーバーには上限と下限があるので、x を探す範囲に x > 4.9 or x < 4.9 の制約をつけてそれぞれについて fun = 796*2 を探す
-    
-    Parameters
-    ----------
-    Param : list [data_0, data_1, subpx_lim]
-        DESCRIPTION.
-    OptimizeResult : Object
-        DESCRIPTION.
-    Sigma_mgn : float
-        標準偏差に対するエラーバーの長さの計算用、標準偏差 * sigma_mgnがエラーバーの幅を決定
-
-    Returns
-    -------
-    Result : list [x下限側eb長さ, x最小値, x上限側eb長さ,
-                   y下限側eb長さ, y最小値, y上限側eb長さ]
-        x : parallel方向, y : perpendicular方向
-        "最小値"は、inputの OptimizeResultで計算済みの、"fun"を最小にするような x ,y
-    """
-    
-    Param_res = [Param, OptimizeResult, Sigma_mgn]
-    Subpx_lim = Param[2]
-    
-    Xmin = sp.optimize.minimize(fun = error_x_func,
-                                x0 = ( OptimizeResult["x"][0] - 2 ), 
-                                args = (Param_res),
-                                constraints = ({"type" : "ineq", "fun" : lambda x : - ( x - OptimizeResult["x"][0] ) },
-                                               {"type" : "ineq", "fun" : lambda x : x + Subpx_lim }),
-                                method = "COBYLA")
- 
-    Xmax = sp.optimize.minimize(fun = error_x_func, 
-                                x0 = ( OptimizeResult["x"][0] + 2 ), 
-                                args = (Param_res),
-                                constraints = ({"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][0] ) },
-                                               {"type" : "ineq", "fun" : lambda x : Subpx_lim - x }),
-                                method = "COBYLA")
-    
-    Ymin = sp.optimize.minimize(fun = error_y_func,
-                                x0 = ( OptimizeResult["x"][1] - 2 ), 
-                                args = (Param_res),
-                                constraints = ({"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][1] ) },
-                                               {"type" : "ineq", "fun" : lambda x : x + Subpx_lim }),
-                                method = "COBYLA")
-        
-    Ymax = sp.optimize.minimize(fun = error_y_func, 
-                                x0 = ( OptimizeResult["x"][1] + 2 ), 
-                                args = (Param_res),
-                                constraints = ({"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][1] ) },
-                                               {"type" : "ineq", "fun" : lambda x : Subpx_lim - x }),
-                                method = "COBYLA")
-    
-    X_mindiff = OptimizeResult["x"][0] - Xmin["x"]
-    X_maxdiff = Xmax["x"] - OptimizeResult["x"][0]
-    Y_mindiff = OptimizeResult["x"][1] - Ymin["x"]
-    Y_maxdiff = Ymax["x"] - OptimizeResult["x"][1]
-    
-    Result = np.stack([X_mindiff, OptimizeResult["x"][0], X_maxdiff, Y_mindiff, OptimizeResult["x"][1], Y_maxdiff])
-    return Result
+    return Xerr, Yerr, Result
 
 def subpx2urad(Subpx):
     """
@@ -305,6 +240,25 @@ def image_plot(fig, title, position, c, c_scale, min_per=0, max_per=100, cbar_ti
     cbar.set_label(cbar_title, fontsize=fs)
         
     return ax
+
+def err_plot(Fig, Title, Position, Xopt, Yarr, Std_opt, Std_noise, Err_mgn):
+    Size = len(Yarr)
+    Xmin = Xopt - Size/2
+    Xmax = Xopt + Size/2
+    Xarr = subpx2urad(np.linspace(Xmin, Xmax, num=Size))
+    Threshold_eb = Std_opt + (Std_opt - Std_noise) * Err_mgn
+    Threshold_ymax = Std_opt + (Std_opt - Std_noise) * 0.5
+    
+    Ax = Fig.add_subplot(Position)
+    Ax.plot(Xarr, Yarr)
+    Ax.set_xlabel("[urad]")
+    Ax.set_ylim(Yarr.min(), Threshold_ymax)
+    Ax.set_title(Title)
+    
+    Ax.vlines(subpx2urad(Xopt), Yarr.min(), Yarr.max())
+    Ax.hlines(Threshold_eb, Xarr.min(), Xarr.max())
+    
+    return Ax
 
 if __name__ == '__main__':
     start = time.time()
@@ -390,21 +344,26 @@ if __name__ == '__main__':
         
         ## error_bar ------------------------------------------------------------
         
-        eb_c_px = error_bar_bounds(param_c, res_c, 1.5)
-        eb_e_px = error_bar_bounds(param_e, res_e, 1.5)
-        eb_c_urad = subpx2urad(eb_c_px)
-        eb_e_urad = subpx2urad(eb_e_px)
+        err_size, err_mgn = 20, 0.05
+        x_err_e, y_err_e, eb_e_px = error_xy_loop(res_e, param_e, err_size, err_mgn, data_noise_std[2])
+        x_err_c, y_err_c, eb_c_px = error_xy_loop(res_c, param_c, err_size, err_mgn, data_noise_std[2])
         
-        angle_c = urad2title(eb_c_urad[1], eb_c_urad[4])
-        angle_e = urad2title(eb_e_urad[1], eb_e_urad[4])
-        print(time.time() - start)
-    
-          
-    
-    
+        eb_e_urad = subpx2urad(eb_e_px)
+        eb_c_urad = subpx2urad(eb_c_px)
+
+        angle_e = urad2title(eb_e_urad[0], eb_e_urad[2])
+        angle_c = urad2title(eb_c_urad[0], eb_c_urad[2])
+
+        record = np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.array([res_e["fun"], res_c["fun"], data_noise_std[2]])])
+        
+        df_res = df_res.append(pd.Series(record, index = df_res.columns), 
+                               ignore_index=True)    
+
+        print(time.time()-start)
+        
         ## for plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
-        gs = fig.add_gridspec(3,2)
+        gs = fig.add_gridspec(5,2)
         fig.suptitle(folder_path[9:15] + " act" + act_num)
         
         ax_5 = image_plot(fig, "-500", gs[0, 0], data_mean[0], data_mean[0])
@@ -412,6 +371,11 @@ if __name__ == '__main__':
         ax_diff = image_plot(fig, "diff {+500} - {-500}", gs[1,0:2], data_diff, data_diff)
         ax_res_e = image_plot(fig, angle_e, gs[2,1], diff_e, data_diff)
         ax_res_c = image_plot(fig, angle_c, gs[2,0], diff_c, data_diff)
+        
+        ax_err_xe = err_plot(fig, "xe", gs[3, 0], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_ye = err_plot(fig, "ye", gs[4, 0], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_xc = err_plot(fig, "xc", gs[3, 1], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_yc = err_plot(fig, "yc", gs[4, 1], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
         
         fig.tight_layout()
         
