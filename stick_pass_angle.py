@@ -100,7 +100,7 @@ def perp_line(X, Array_2d, Edge):
     Perp_line = Array_2d[:, Idx]
     return Perp_line
 
-def tangent_line(X, Y_surf, Edge):
+def tangent_line(X, Z_surf, Edge):
     """
     
 
@@ -108,7 +108,7 @@ def tangent_line(X, Y_surf, Edge):
     ----------
     X : 1d-array
         
-    Y_surf : 1d-array
+    Z_surf : 1d-array
         stick_line
     Edge : float
         length from M1 edge
@@ -123,7 +123,7 @@ def tangent_line(X, Y_surf, Edge):
         DESCRIPTION.
 
     """
-    Y = Y_surf
+    Y = Z_surf
     Radi = X.max()
     Idx = abs( X - (Radi-Edge)).argmin()
     
@@ -142,26 +142,26 @@ def calc_zwopx(tilt_rad):
     px_num = physical_length / zwopx
     return px_num
 
-def stick_plot(fig, title, position, x, y_surf, edge):
-    px = len(x)
-    radi = x.max()
-    
-    y_ct, tilt_ct, idx_ct = tangent_line(x_arr, y_surf, m1_radi)
-    y_eg, tilt_eg, idx_eg = tangent_line(x_arr, y_surf, edge)
-    tilt_ct_mrad = str(round(tilt_ct * 1e6, 3))
-    tilt_eg_mrad = str(round(tilt_eg * 1e6, 3))
+def stick_plot(Fig, Title, Position, X, Z_surf, Edge, M1_radi):
+    Px = len(Z_surf)
+    Horizontal = np.linspace(-M1_radi, M1_radi, Px) # 地面に水平な面上での距離
+    Z_c, Tilt_c, Idx_c = tangent_line(Horizontal, Z_surf, M1_radi)
+    Z_e, Tilt_e, Idx_e = tangent_line(Horizontal, Z_surf, Edge)
+    Tilt_c_mrad = str(round(Tilt_c * 1e6, 3))
+    Tilt_e_mrad = str(round(Tilt_e * 1e6, 3))
 
     ## plot
-    ax = fig.add_subplot(position)
-    ax.plot(x[1:-1], y_surf[1:-1], linewidth=5, label="")
-    ax.plot(x, y_ct, label=tilt_ct_mrad + " [micro rad]")
-    ax.plot(x, y_eg, label=tilt_eg_mrad + " [micro rad]")
-    ax.scatter([x[idx_ct], x[idx_eg]], [y_surf[idx_ct], y_surf[idx_eg]], s=200, c="red", label="")
+    Ax = Fig.add_subplot(Position)
+    Ax.plot(X[1:-1], Z_surf[1:-1], linewidth=5, label="")
+    Ax.plot(X, Z_c, label=Tilt_c_mrad + " [micro rad]")
+    Ax.plot(X, Z_e, label=Tilt_e_mrad + " [micro rad]")
+    Ax.scatter([X[Idx_c], X[Idx_e]], [Z_surf[Idx_c], Z_surf[Idx_e]], s=200, c="red", label="")
     
-    ax.set_ylim(y_surf.min(), y_surf.max())
-    ax.set_ylabel
-    ax.legend()
-    return ax
+    Ax.set_title(Title)
+    Ax.set_ylim(Z_surf.min(), Z_surf.max())
+    Ax.set_ylabel
+    Ax.legend()
+    return Ax
 
 if __name__ == '__main__':
     px = 1025
@@ -184,8 +184,8 @@ if __name__ == '__main__':
     df_cols = ["act", "para_e", "perp_e", "para_c", "perp_c"]
     df_res_fem = pd.DataFrame(index=[], columns=df_cols)
     
-    for i in range(0, len(df_res)):
-    #for i in range(0, 3):
+    #for i in range(0, len(df_res)):
+    for i in range(0, 3):
         act_num = "F" + str(int(df_res["act"][i])).zfill(2)
         print(act_num)
         
@@ -218,10 +218,10 @@ if __name__ == '__main__':
         ax_rotate = ac.image_plot(fig, title_rotate, gs[1,0], diff_rotate, diff_rotate, 0, 100, "mm")
         ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
         ax_rotate.vlines([para_c[2], para_e[2]], 0, px-1, linewidth=3, colors="black")
-        ax_para = stick_plot(fig, "", gs[2, 0], x_arr, para_line, edge_length)
+        ax_para = stick_plot(fig, "", gs[2, 0], x_arr, para_line, edge_length, m1_radi)
         
-        ax_perp_c = stick_plot(fig, "", gs[1, 1], y_arr, perp_line_c, m1_radi)
-        ax_perp_e = stick_plot(fig, "", gs[2, 1], y_arr, perp_line_e, m1_radi)
+        ax_perp_c = stick_plot(fig, "", gs[1, 1], y_arr, perp_line_c, m1_radi, m1_radi)
+        ax_perp_e = stick_plot(fig, "", gs[2, 1], y_arr, perp_line_e, m1_radi, m1_radi)
         fig.tight_layout()
         
         picname = mkfolder() + "act_" + act_num + ".png"

@@ -22,7 +22,7 @@ import mpl_toolkits.axes_grid1
 import ac0423read as ac
 import stick_pass_angle as spa
 
-def mkfolder(suffix = ""):
+def mkfolder(Suffix = ""):
     import os
     """    
     Parameters
@@ -34,11 +34,11 @@ def mkfolder(suffix = ""):
     -------
     str ( script name + suffix )
     """
-    filename = os.path.basename(__file__)
-    filename = filename.replace(".py", "") + suffix
-    folder = "mkfolder/" + filename + "/" 
-    os.makedirs(folder, exist_ok = True)
-    return folder
+    Filename = os.path.basename(__file__)
+    Filename = Filename.replace(".py", "") + Suffix
+    Folder = "mkfolder/" + Filename + "/"
+    os.makedirs(Folder, exist_ok=True)
+    return Folder
 
 def make_set():
     """
@@ -73,7 +73,6 @@ def make_set():
             Pattern1[Idx] = 1
         else:
             Pattern1[Idx] = 0
-    print(Pattern1)
     
     Pattern2 = np.empty(36)
     for Idx in range(36):
@@ -82,7 +81,6 @@ def make_set():
             Pattern2[Idx] = 1
         else:
             Pattern2[Idx] = 0
-    print(Pattern2)
     
     Pattern3 = np.empty(36)
     for Idx in range(36):
@@ -93,14 +91,77 @@ def make_set():
             Pattern3[Idx] = -1
         else:
             Pattern3[Idx] = 0
-    print(Pattern3)
     
     return Pattern1, Pattern2, Pattern3
     
 if __name__ == '__main__':
+    px = 1025
     m1_radi = 1850/2
     stick_angle = 30 # アルミ棒のx軸に対する角度deg
     edge_length = 40 # フチから斜め鏡までの距離
     
-    set1, set2, set3 = make_set()
+    x_arr = y_arr = np.linspace(-m1_radi, m1_radi, px)
+    xx, yy = np.meshgrid(x_arr, y_arr)
+    tf = np.where(xx**2+yy**2<=m1_radi**2, True, False)
+    
+    set_list = make_set()
     act_tuning = spa.make_act_tuning()
+    
+    df0 = spa.read("_Fxx/PM3.5_36ptAxWT06_F00.smesh.txt")
+    
+    df_cols = ["act", "para_e", "perp_e", "para_c", "perp_c"]
+    df_res_fem = pd.DataFrame(index=[], columns=df_cols)
+    
+    for set_num in range(3):
+        set_str = str(int(set_num+1))
+        diff_sum = np.zeros((px,px))
+        
+        for act_num in range(36):
+            act_str = str(int(act_num + 1)).zfill(2)
+            print("F" + act_str)
+            
+            if set_list[set_num][act_num] == 0:
+                pass
+            else:
+                fem2act = 5 * act_tuning[act_num] * set_list[set_num][act_num]
+                
+                dfxx = spa.read("_Fxx/PM3.5_36ptAxWT06_F" + act_str + ".smesh.txt")
+                diff = tf * fem2act * spa.fem_interpolate(df0, dfxx, xx, yy)
+                
+                diff_sum = diff_sum + diff
+        
+        diff_rotate = spa.rotation(diff_sum, stick_angle, tf)
+        para_line = diff_rotate[round(px/2), :]
+        perp_line_c = spa.perp_line(y_arr, diff_rotate, m1_radi)
+        perp_line_e = spa.perp_line(y_arr, diff_rotate, edge_length)
+        
+        para_c = spa.tangent_line(x_arr, para_line, m1_radi)
+        para_e = spa.tangent_line(x_arr, para_line, edge_length)
+        perp_c = spa.tangent_line(y_arr, perp_line_c, m1_radi)
+        perp_e = spa.tangent_line(y_arr, perp_line_e, m1_radi)
+        
+        ## for plot ------------------------------------------------------------
+        fig = plt.figure(figsize=(10,15))
+        fig.suptitle("Pattern" + set_str)
+        gs = fig.add_gridspec(3,2)
+        
+        title_rotate = str(stick_angle) + "[deg]"
+        
+        ax_diff = ac.image_plot(fig, "", gs[0,0], diff_sum, diff_sum, 0, 100, "mm")
+        ax_rotate = ac.image_plot(fig, "", gs[1,0], diff_rotate, diff_rotate, 0, 100, "mm")
+        ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
+        ax_rotate.vlines([para_c[2], para_e[2]], 0, px-1, linewidth=3, colors="black")
+        ax_para = spa.stick_plot(fig, "", gs[2, 0], x_arr, para_line, edge_length, m1_radi)
+        
+        ax_perp_c = spa.stick_plot(fig, "", gs[1, 1], y_arr, perp_line_c, m1_radi, m1_radi)
+        ax_perp_e = spa.stick_plot(fig, "", gs[2, 1], y_arr, perp_line_e, m1_radi, m1_radi)
+        fig.tight_layout()
+        
+        picname = mkfolder() + "pattern" + set_str + ".png"
+        fig.savefig(picname)
+        fig.show()
+        
+        record = pd.Series([set_str, para_e[1], perp_e[1], para_c[1], perp_c[1]], index=df_res_fem.columns)        
+        df_res_fem = df_res_fem.append(record, ignore_index=True)
+    
+    df_res_fem.to_csv(mkfolder()+"fem_multiact_angle.csv")
