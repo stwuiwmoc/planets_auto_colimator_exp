@@ -163,32 +163,6 @@ def stick_plot(fig, title, position, x, y_surf, edge):
     ax.legend()
     return ax
 
-def table_plot(fig, title, position, data_list, col, row):
-    data_list = data_list.round(2).values
-    ax = fig.add_subplot(position)
-    ax.table(cellText = data_list,
-             cellLoc = "right",
-             colLabels = col,
-             colLoc = "center",
-             rowLabels = row,
-             rowLoc = "center")
-    ax.axis("off")
-    return ax
-
-def text_plot(fig, title, position, text_list):
-    row = len(text_list)
-    fs = 15
-    ax = fig.add_subplot(position)
-    height = np.arange(start=0.1, stop=0.2+0.1*row, step=0.1)
-    
-    for i in range(row):
-        ax.text(0.1, height[i], text_list[i], ha="left", fontsize=fs)
-    
-    ax.xaxis.set_ticklabels([])
-    ax.yaxis.set_ticklabels([])
-    ax.set_ylim(1,0)
-    return ax
-
 if __name__ == '__main__':
     px = 1025
     m1_radi = 1850/2
@@ -234,18 +208,6 @@ if __name__ == '__main__':
         
         
         ## for plot ------------------------------------------------------------
-        """
-        text = ["zwopx_center = " + str(zwopx_c.round(3)) + "[px]",
-                fname_res[-15:-4] + " = " + str(round(df_res["dvert_c"][i], 3)) + "[px]",
-                "",
-                "zwopx_edge = " + str(zwopx_e.round(3)) + " [px]",
-                fname_res[-15:-4] + " = " + str(round(df_res["dvert_l"][i], 3)) + "[px]",
-                "",
-                "zwopx_diff = " + str((zwopx_e-zwopx_c).round(3)) + " [px]",
-                fname_res[-15:-4] + " = " + str(round(df_res["dvert_l"][i]-df_res["dvert_c"][i], 3)) + "[px]",
-                ]
-        """
-        text=[]
         title_diff = "act" + act_num[1:] + " in FEM"
         title_rotate = "act" + act_num[1:] + " ( FEM x " + str(fem2act) + " ), " + str(stick_angle)+" deg"
         
@@ -256,8 +218,6 @@ if __name__ == '__main__':
         ax_rotate = ac.image_plot(fig, title_rotate, gs[1,0], diff_rotate, diff_rotate, 0, 100, "mm")
         ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
         ax_rotate.vlines([para_c[2], para_e[2]], 0, px-1, linewidth=3, colors="black")
-        #ax_table = table_plot(fig, "", gs[1,0], table_list, column_list, row_list)
-        ax_text = text_plot(fig, "", gs[0, 1], text)
         ax_para = stick_plot(fig, "", gs[2, 0], x_arr, para_line, edge_length)
         
         ax_perp_c = stick_plot(fig, "", gs[1, 1], y_arr, perp_line_c, m1_radi)
