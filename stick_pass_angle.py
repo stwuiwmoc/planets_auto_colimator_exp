@@ -77,16 +77,16 @@ def make_act_tuning():
         20., -38.,  38.])
     return Act_tuning
 
-def fem_interpolate(df_0, dfxx):
+def fem_interpolate(Df_0, Dfxx, XX_new, YY_new):
     # input [mm] -> output [mm]    
     #mesh型のデータを格子点gridに補完
-    x_old = dfxx["x"]
-    y_old = dfxx["y"]
-    dw_old = dfxx["dz"] - df_0["dz"]
+    X_old = Dfxx["x"]
+    Y_old = Dfxx["y"]
+    Dw_old = Dfxx["dz"] - Df_0["dz"]
     
-    xy_old = np.stack([x_old, y_old], axis=1)
-    dw_new = sp.interpolate.griddata(xy_old, dw_old, (xx, yy), method="linear", fill_value=0)
-    return dw_new
+    XY_old = np.stack([X_old, Y_old], axis=1)
+    Dw_new = sp.interpolate.griddata(XY_old, Dw_old, (XX_new, YY_new), method="linear", fill_value=0)
+    return Dw_new
     
 def rotation(array_2d, angle_deg, mask_tf):
     img = PIL.Image.fromarray(array_2d)
@@ -220,7 +220,7 @@ if __name__ == '__main__':
     
         fname = "_Fxx/PM3.5_36ptAxWT06_" + act_num + ".smesh.txt"
         dfxx = read(fname)
-        diff =  tf * fem_interpolate(df0, dfxx)
+        diff =  tf * fem_interpolate(df0, dfxx, xx, yy)
         
         diff_rotate = rotation(diff, stick_angle, tf) * fem2act
         para_line = diff_rotate[round(px/2), :]
