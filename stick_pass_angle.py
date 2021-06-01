@@ -37,25 +37,25 @@ def mkfolder(Suffix = ""):
     os.makedirs(Folder, exist_ok=True)
     return Folder
 
-def read(filename):
+def read(Filename):
     #skip行数の設定
-    skip = 0
-    with open(filename) as f:
+    Skip = 0
+    with open(Filename) as F:
         while True:
-            line = f.readline()
-            if line[0] == '%':
-                skip += 1
+            Line = F.readline()
+            if Line[0] == '%':
+                Skip += 1
             else:
                 break
             #エラーの処理
-            if len(line) == 0:
+            if len(Line) == 0:
                 break
 
     #データの読み出し
-    df = pd.read_csv(filename, sep='\s+', skiprows=skip, header=None) #\s+...スペース数に関わらず区切る
-    df.columns = ["x", "y", "z", "color", "dx", "dy", "dz" ]
-    df = df * 10**3 # [m] -> [mm]
-    return df
+    Df = pd.read_csv(Filename, sep='\s+', skiprows=Skip, header=None) #\s+...スペース数に関わらず区切る
+    Df.columns = ["x", "y", "z", "color", "dx", "dy", "dz" ]
+    Df = Df * 10**3 # [m] -> [mm]
+    return Df
 
 def make_act_tuning():
     """
