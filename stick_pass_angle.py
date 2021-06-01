@@ -56,6 +56,26 @@ def read(filename):
     df = df * 10**3 # [m] -> [mm]
     return df
 
+def make_act_tuning():
+    """
+    fem は0.5Nmでの計算結果, モーター100step(1mm)への変換係数がact_tuning
+    
+    WH番号　[0,1,6,7,12,13,18,19,24,25,30,31]+1 にはx37
+    WH番号 [2,3,8,9,14,15,20,21,26,27,32,33]+1 にはx20
+    WH番号 [4,10,16,22,28,34]+1 にはx-38
+    WH番号　[5,11,17,23,29,35]+1 にはx38
+
+    Returns
+    -------
+    None.
+
+    """
+    Act_tuning = np.array([ 37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,  20., -38.,
+        38.,  37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,  20.,
+       -38.,  38.,  37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,
+        20., -38.,  38.])
+    return Act_tuning
+
 def fem_interpolate(df_0, dfxx):
     # input [mm] -> output [mm]    
     #mesh型のデータを格子点gridに補完
@@ -175,14 +195,7 @@ if __name__ == '__main__':
     edge_length = 40 # フチから斜め鏡までの距離
     # fem では0.05Nm のトルク、実物の+-500は板バネ+-5mm相当、ばね定数5.78N/mm、腕の長さ0.25m
     
-    #WH番号　[0,1,6,7,12,13,18,19,24,25,30,31]+1 にはx37
-    #WH番号 [2,3,8,9,14,15,20,21,26,27,32,33]+1 にはx20
-    #WH番号 [4,10,16,22,28,34]+1 にはx-38
-    #WH番号　[5,11,17,23,29,35]+1 にはx38
-    act_tuning = np.array([ 37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,  20., -38.,
-        38.,  37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,  20.,
-       -38.,  38.,  37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,
-        20., -38.,  38.])
+    act_tuning = make_act_tuning()
     
     fname_res = "mkfolder/ac0430read/210430/act01_36.csv"
     df_res = pd.read_csv(fname_res)
@@ -198,11 +211,11 @@ if __name__ == '__main__':
     
     for i in range(0, len(df_res)):
     #for i in range(0, 3):
-        act_num = "F" + str(df_res["act"][i]).zfill(2)
+        act_num = "F" + str(int(df_res["act"][i])).zfill(2)
         print(act_num)
         
-        #fem は0.5Nm, モーター100step(1mm)への変換係数がact_tuning, 0423の計測は+-500stepなので更に10倍
-        fem2act = 5 * act_tuning[df_res["act"][i]-1]
+        #fem は0.5Nm, モーター100step(1mm)への変換係数がact_tuning
+        fem2act = 5 * act_tuning[int(df_res["act"][i]-1)]
     
         fname = "_Fxx/PM3.5_36ptAxWT06_" + act_num + ".smesh.txt"
         dfxx = read(fname)

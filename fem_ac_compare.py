@@ -48,7 +48,7 @@ def act_plot(Fig, Title, Position, Black=False, Blue=False, Red=False, Orange=Fa
             else: # つまり df_ac を使っている場合
                 Key_eb = Key + "_eb"
                 Ax.errorbar(Df["act"], Df[Key], c=Color, 
-                            yerr=Df[Key_eb], elinewidth=0.5, capsize=2)
+                            yerr=Df[Key_eb], elinewidth=0.8, capsize=2)
                 
     Ax.set_title(Title)
     Ax.set_ylabel("Tilt [micro rad]")
