@@ -21,7 +21,7 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-def mkfolder(suffix = ""):
+def mkfolder(Suffix = ""):
     import os
     """    
     Parameters
@@ -33,11 +33,11 @@ def mkfolder(suffix = ""):
     -------
     str ( script name + suffix )
     """
-    filename = os.path.basename(__file__)
-    filename = filename.replace(".py", "") + suffix
-    folder = "mkfolder/" + filename + "/"
-    os.makedirs(folder, exist_ok=True)
-    return folder
+    Filename = os.path.basename(__file__)
+    Filename = Filename.replace(".py", "") + Suffix
+    Folder = "mkfolder/" + Filename + "/"
+    os.makedirs(Folder, exist_ok=True)
+    return Folder
 
 if __name__ == '__main__':
     px_v, px_h = 384, 512

@@ -11,7 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-def mkfolder(suffix = ""):
+def mkfolder(Suffix = ""):
     import os
     """    
     Parameters
@@ -23,11 +23,12 @@ def mkfolder(suffix = ""):
     -------
     str ( script name + suffix )
     """
-    filename = os.path.basename(__file__)
-    filename = filename.replace(".py", "") + suffix
-    folder = "mkfolder/" + filename + "/"
-    os.makedirs(folder, exist_ok=True)
-    return folder
+    Filename = os.path.basename(__file__)
+    Filename = Filename.replace(".py", "") + Suffix
+    Folder = "mkfolder/" + Filename + "/"
+    os.makedirs(Folder, exist_ok=True)
+    return Folder
+
 def act_plot(Fig, Title, Position, Black=False, Blue=False, Red=False, Orange=False, Green=False):
     
     Color_list = ["black", "blue", "red", "orangered", "green"]
