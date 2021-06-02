@@ -42,7 +42,7 @@ def mkfolder(Suffix = ""):
 if __name__ == '__main__':
     start = time.time()
     px_v, px_h = 384, 512
-    px_clip_width = 250 
+    px_clip_width = 200
     px_lim = 50
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
     subpx_lim = int(px_lim * mgn)
@@ -94,8 +94,8 @@ if __name__ == '__main__':
             
             ## 10回の撮像を平均し、edgeとcenterを切り出し --------------------------
             data_mean_temp = data_mean_temp / len(path_list)
-            data_e_temp = data_mean_temp[100:300, 275:475]
-            data_c_temp = data_mean_temp[25:275, 50:300]
+            data_e_temp = ac.data_clip(data_mean_temp, 125, 275, px_clip_width)
+            data_c_temp = ac.data_clip(data_mean_temp, 50, 100, px_clip_width)
             
             data_mean.append(data_mean_temp)
             data_e.append(data_e_temp)
