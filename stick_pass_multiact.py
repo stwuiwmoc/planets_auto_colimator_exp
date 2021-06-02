@@ -42,7 +42,7 @@ def mkfolder(Suffix = ""):
 
 def make_set():
     """
-    0507ex23
+    0510ex24
     ExWH23の10のディレクトリは順番に
     1) WH全部0で撮像(x2)
     2) パターン1で符号入れ替えて1回ずつ
