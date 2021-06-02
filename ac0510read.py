@@ -70,7 +70,7 @@ if __name__ == '__main__':
     """
     folder_list = folder_list_raw[2:-2]
     
-    for i in range(3):
+    for i in range(1):
         act_num = str(i+1).zfill(2)
         print(act_num)
         
@@ -123,7 +123,7 @@ if __name__ == '__main__':
         param_e = ip_e + [subpx_lim]
         param_c = ip_c + [subpx_lim]
         
-        res_e = sp.optimize.minimize(fun=ac.std_func, x0=(0,10), args=(param_e, ), method="Powell")
+        res_e = sp.optimize.minimize(fun=ac.std_func, x0=(0,60), args=(param_e, ), method="Powell")
         res_c = sp.optimize.minimize(fun=ac.std_func, x0=(0,0), args=(param_c, ), method="Powell")
         
         diff_e = ac.displace(res_e["x"][0], res_e["x"][1], param_e)
@@ -138,8 +138,8 @@ if __name__ == '__main__':
         eb_e_urad = ac.subpx2urad(eb_e_px)
         eb_c_urad = ac.subpx2urad(eb_c_px)
 
-        angle_e = ac.urad2title(eb_e_urad[0], eb_e_urad[2])
-        angle_c = ac.urad2title(eb_c_urad[0], eb_c_urad[2])
+        angle_e = "Edge\n" + ac.urad2title(eb_e_urad[0], eb_e_urad[2])
+        angle_c = "Center\n" + ac.urad2title(eb_c_urad[0], eb_c_urad[2])
 
         record = np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.array([res_e["fun"], res_c["fun"], data_noise_std[2]])])
         
@@ -156,13 +156,13 @@ if __name__ == '__main__':
         ax_5 = ac.image_plot(fig, "+500", gs[0, 0], data_mean[0], data_mean[0])
         ax_0 = ac.image_plot(fig, "-500", gs[0, 1], data_mean[1], data_mean[0])
         ax_diff = ac.image_plot(fig, "diff {+500} - {-500}", gs[1,0:2], data_diff, data_diff)
-        ax_res_e = ac.image_plot(fig, angle_e, gs[2,0], diff_e, data_diff)
-        ax_res_c = ac.image_plot(fig, angle_c, gs[2,1], diff_c, data_diff)
+        ax_res_e = ac.image_plot(fig, angle_e, gs[2,1], diff_e, data_diff)
+        ax_res_c = ac.image_plot(fig, angle_c, gs[2,0], diff_c, data_diff)
         
-        ax_err_xe = ac.err_plot(fig, "xe", gs[3, 0], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
-        ax_err_ye = ac.err_plot(fig, "ye", gs[4, 0], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
-        ax_err_xc = ac.err_plot(fig, "xc", gs[3, 1], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
-        ax_err_yc = ac.err_plot(fig, "yc", gs[4, 1], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_xe = ac.err_plot(fig, "x(para) e", gs[3, 1], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_ye = ac.err_plot(fig, "y(perp) e", gs[4, 1], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_xc = ac.err_plot(fig, "x(para) c", gs[3, 0], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_yc = ac.err_plot(fig, "y(perp) c", gs[4, 0], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
         
         fig.tight_layout()
         
@@ -174,4 +174,3 @@ if __name__ == '__main__':
         pass
     else:    
         df_res.to_csv(csvname, index=False)
-    

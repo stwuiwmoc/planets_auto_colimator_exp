@@ -158,13 +158,13 @@ if __name__ == '__main__':
         ax_5 = ac.image_plot(fig, "+500", gs[0, 0], data_mean[0], data_mean[0])
         ax_0 = ac.image_plot(fig, "+000", gs[0, 1], data_mean[1], data_mean[0])
         ax_diff = ac.image_plot(fig, "diff {+500} - {+000}", gs[1,0:2], data_diff, data_diff)
-        ax_res_e = ac.image_plot(fig, "angle_e", gs[2,0], diff_e, data_diff)
-        ax_res_c = ac.image_plot(fig, "angle_c", gs[2,1], diff_c, data_diff)
+        ax_res_e = ac.image_plot(fig, "angle_e", gs[2,1], diff_e, data_diff)
+        ax_res_c = ac.image_plot(fig, "angle_c", gs[2,0], diff_c, data_diff)
         
-        ax_err_xe = ac.err_plot(fig, "xe", gs[3, 0], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
-        ax_err_ye = ac.err_plot(fig, "ye", gs[4, 0], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
-        ax_err_xc = ac.err_plot(fig, "xc", gs[3, 1], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
-        ax_err_yc = ac.err_plot(fig, "yc", gs[4, 1], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_xe = ac.err_plot(fig, "xe", gs[3, 1], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_ye = ac.err_plot(fig, "ye", gs[4, 1], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_xc = ac.err_plot(fig, "xc", gs[3, 0], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_yc = ac.err_plot(fig, "yc", gs[4, 0], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
         
         fig.tight_layout()
         

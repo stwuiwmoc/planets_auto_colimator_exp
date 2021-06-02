@@ -273,12 +273,11 @@ if __name__ == '__main__':
     
     act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
     #act_list = ["17"]
-    
     df_cols = ["act",
-               "para_e_ebmin", "para_e", "para_e_ebmax",
-               "perp_e_ebmin", "perp_e", "perp_e_ebmax", 
-               "para_c_ebmin", "para_c", "para_c_ebmax", 
-               "perp_c_ebmin", "perp_c", "perp_c_ebmax",
+               "para_e", "para_e_eb",
+               "perp_e", "perp_e_eb", 
+               "para_c", "para_c_eb", 
+               "perp_c", "perp_c_eb",
                "e_std", "c_std", "noise"]
     
     df_res = pd.DataFrame(index=[], columns=df_cols)
@@ -374,10 +373,10 @@ if __name__ == '__main__':
         ax_res_e = image_plot(fig, angle_e, gs[2,1], diff_e, data_diff)
         ax_res_c = image_plot(fig, angle_c, gs[2,0], diff_c, data_diff)
         
-        ax_err_xe = err_plot(fig, "xe", gs[3, 0], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
-        ax_err_ye = err_plot(fig, "ye", gs[4, 0], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
-        ax_err_xc = err_plot(fig, "xc", gs[3, 1], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
-        ax_err_yc = err_plot(fig, "yc", gs[4, 1], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_xe = err_plot(fig, "xe", gs[3, 1], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_ye = err_plot(fig, "ye", gs[4, 1], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_xc = err_plot(fig, "xc", gs[3, 0], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_yc = err_plot(fig, "yc", gs[4, 0], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
         
         fig.tight_layout()
         
