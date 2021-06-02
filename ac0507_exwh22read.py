@@ -162,8 +162,8 @@ if __name__ == '__main__':
         
         ax_err_xe = ac.err_plot(fig, "xe", gs[3, 1], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
         ax_err_ye = ac.err_plot(fig, "ye", gs[4, 1], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
-        ax_err_xc = ac.err_plot(fig, "xc", gs[3, 0], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
-        ax_err_yc = ac.err_plot(fig, "yc", gs[4, 0], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_xc = ac.err_plot(fig, "xc", gs[3, 0], res_c["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_yc = ac.err_plot(fig, "yc", gs[4, 0], res_c["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
         
         fig.tight_layout()
         

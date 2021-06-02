@@ -153,13 +153,13 @@ def std_func(X, param):
     return std
 
 def error_xy_loop(OptimizeResult, Param, Err_size, Err_mgn, Std_noise):
-    Xopt, Yopt = OptimizeResult["x"]
+    Xopt, Yopt = OptimizeResult["x"] #subpx
     Std_opt = OptimizeResult["fun"]
     Xerr = np.empty(Err_size)
     Yerr = np.empty(Err_size)
     for i in range(Err_size):
-        Xi = Xopt + i - Err_size/2
-        Yi = Yopt + i - Err_size/2
+        Xi = Xopt + i - Err_size/2 #subpx
+        Yi = Yopt + i - Err_size/2 #subpx
         Xerr[i] = np.std(displace(Xi, Yopt, Param))
         Yerr[i] = np.std(displace(Xopt, Yi, Param))
     
@@ -168,7 +168,7 @@ def error_xy_loop(OptimizeResult, Param, Err_size, Err_mgn, Std_noise):
     Yeb = np.sum(np.where(Yerr<Threshold, 1, 0))
     Result = np.array([Xopt, Xeb, Yopt, Yeb])
     
-    return Xerr, Yerr, Result
+    return Xerr, Yerr, Result 
 
 def subpx2urad(Subpx):
     """
@@ -245,9 +245,9 @@ def image_plot(fig, title, position, c, c_scale, min_per=0, max_per=100, cbar_ti
 
 def err_plot(Fig, Title, Position, Xopt, Yarr, Std_opt, Std_noise, Err_mgn):
     Size = len(Yarr)
-    Xmin = Xopt - Size/2
-    Xmax = Xopt + Size/2
-    Xarr = subpx2urad(np.linspace(Xmin, Xmax, num=Size))
+    Xmin = Xopt - Size/2 #subpx
+    Xmax = Xopt + Size/2 #subpx
+    Xarr = subpx2urad(np.linspace(Xmin, Xmax, num=Size)) #urad
     Threshold_eb = Std_opt + (Std_opt - Std_noise) * Err_mgn
     Threshold_ymax = Std_opt + (Std_opt - Std_noise) * 0.5
     
@@ -375,8 +375,8 @@ if __name__ == '__main__':
         
         ax_err_xe = err_plot(fig, "xe", gs[3, 1], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
         ax_err_ye = err_plot(fig, "ye", gs[4, 1], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
-        ax_err_xc = err_plot(fig, "xc", gs[3, 0], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
-        ax_err_yc = err_plot(fig, "yc", gs[4, 0], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_xc = err_plot(fig, "xc", gs[3, 0], res_c["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_yc = err_plot(fig, "yc", gs[4, 0], res_c["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
         
         fig.tight_layout()
         

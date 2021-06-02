@@ -70,7 +70,10 @@ if __name__ == '__main__':
     """
     folder_list = folder_list_raw[2:-2]
     
-    for i in range(1):
+    X0e_list = [(-30,60), (50,-55), (90,-120)]
+    X0c_list = [(-30,60), (50,-55), (90,-120)]
+    
+    for i in range(3):
         act_num = str(i+1).zfill(2)
         print(act_num)
         
@@ -123,8 +126,8 @@ if __name__ == '__main__':
         param_e = ip_e + [subpx_lim]
         param_c = ip_c + [subpx_lim]
         
-        res_e = sp.optimize.minimize(fun=ac.std_func, x0=(0,60), args=(param_e, ), method="Powell")
-        res_c = sp.optimize.minimize(fun=ac.std_func, x0=(0,0), args=(param_c, ), method="Powell")
+        res_e = sp.optimize.minimize(fun=ac.std_func, x0=X0e_list[i], args=(param_e, ), method="Powell")
+        res_c = sp.optimize.minimize(fun=ac.std_func, x0=X0c_list[i], args=(param_c, ), method="Powell")
         
         diff_e = ac.displace(res_e["x"][0], res_e["x"][1], param_e)
         diff_c = ac.displace(res_c["x"][0], res_c["x"][1], param_c)
@@ -161,8 +164,8 @@ if __name__ == '__main__':
         
         ax_err_xe = ac.err_plot(fig, "x(para) e", gs[3, 1], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
         ax_err_ye = ac.err_plot(fig, "y(perp) e", gs[4, 1], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
-        ax_err_xc = ac.err_plot(fig, "x(para) c", gs[3, 0], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
-        ax_err_yc = ac.err_plot(fig, "y(perp) c", gs[4, 0], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_xc = ac.err_plot(fig, "x(para) c", gs[3, 0], res_c["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_yc = ac.err_plot(fig, "y(perp) c", gs[4, 0], res_c["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
         
         fig.tight_layout()
         
