@@ -19,7 +19,8 @@ import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 import mpl_toolkits.axes_grid1
 
-def mkfolder(suffix = ""):
+def mkfolder(Suffix = ""):
+    import os
     """    
     Parameters
     ----------
@@ -30,42 +31,62 @@ def mkfolder(suffix = ""):
     -------
     str ( script name + suffix )
     """
-    filename = os.path.basename(__file__)
-    filename = filename.replace(".py", "") + suffix
-    folder = "mkfolder/" + filename + "/"
-    os.makedirs(folder, exist_ok=True)
-    return folder
+    Filename = os.path.basename(__file__)
+    Filename = Filename.replace(".py", "") + Suffix
+    Folder = "mkfolder/" + Filename + "/"
+    os.makedirs(Folder, exist_ok=True)
+    return Folder
 
-def read(filename):
+def read(Filename):
     #skip行数の設定
-    skip = 0
-    with open(filename) as f:
+    Skip = 0
+    with open(Filename) as F:
         while True:
-            line = f.readline()
-            if line[0] == '%':
-                skip += 1
+            Line = F.readline()
+            if Line[0] == '%':
+                Skip += 1
             else:
                 break
             #エラーの処理
-            if len(line) == 0:
+            if len(Line) == 0:
                 break
 
     #データの読み出し
-    df = pd.read_csv(filename, sep='\s+', skiprows=skip, header=None) #\s+...スペース数に関わらず区切る
-    df.columns = ["x", "y", "z", "color", "dx", "dy", "dz" ]
-    df = df * 10**3 # [m] -> [mm]
-    return df
+    Df = pd.read_csv(Filename, sep='\s+', skiprows=Skip, header=None) #\s+...スペース数に関わらず区切る
+    Df.columns = ["x", "y", "z", "color", "dx", "dy", "dz" ]
+    Df = Df * 10**3 # [m] -> [mm]
+    return Df
 
-def fem_interpolate(df_0, dfxx):
+def make_act_tuning():
+    """
+    fem は0.5Nmでの計算結果, モーター100step(1mm)への変換係数がact_tuning
+    
+    WH番号　[0,1,6,7,12,13,18,19,24,25,30,31]+1 にはx37
+    WH番号 [2,3,8,9,14,15,20,21,26,27,32,33]+1 にはx20
+    WH番号 [4,10,16,22,28,34]+1 にはx-38
+    WH番号　[5,11,17,23,29,35]+1 にはx38
+
+    Returns
+    -------
+    None.
+
+    """
+    Act_tuning = np.array([ 37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,  20., -38.,
+        38.,  37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,  20.,
+       -38.,  38.,  37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,
+        20., -38.,  38.])
+    return Act_tuning
+
+def fem_interpolate(Df_0, Dfxx, XX_new, YY_new):
     # input [mm] -> output [mm]    
     #mesh型のデータを格子点gridに補完
-    x_old = dfxx["x"]
-    y_old = dfxx["y"]
-    dw_old = dfxx["dz"] - df_0["dz"]
+    X_old = Dfxx["x"]
+    Y_old = Dfxx["y"]
+    Dw_old = Dfxx["dz"] - Df_0["dz"]
     
-    xy_old = np.stack([x_old, y_old], axis=1)
-    dw_new = sp.interpolate.griddata(xy_old, dw_old, (xx, yy), method="linear", fill_value=0)
-    return dw_new
+    XY_old = np.stack([X_old, Y_old], axis=1)
+    Dw_new = sp.interpolate.griddata(XY_old, Dw_old, (XX_new, YY_new), method="linear", fill_value=0)
+    return Dw_new
     
 def rotation(array_2d, angle_deg, mask_tf):
     img = PIL.Image.fromarray(array_2d)
@@ -79,7 +100,7 @@ def perp_line(X, Array_2d, Edge):
     Perp_line = Array_2d[:, Idx]
     return Perp_line
 
-def tangent_line(X, Y_surf, Edge):
+def tangent_line(X, Z_surf, Edge):
     """
     
 
@@ -87,7 +108,7 @@ def tangent_line(X, Y_surf, Edge):
     ----------
     X : 1d-array
         
-    Y_surf : 1d-array
+    Z_surf : 1d-array
         stick_line
     Edge : float
         length from M1 edge
@@ -102,7 +123,7 @@ def tangent_line(X, Y_surf, Edge):
         DESCRIPTION.
 
     """
-    Y = Y_surf
+    Y = Z_surf
     Radi = X.max()
     Idx = abs( X - (Radi-Edge)).argmin()
     
@@ -121,52 +142,26 @@ def calc_zwopx(tilt_rad):
     px_num = physical_length / zwopx
     return px_num
 
-def stick_plot(fig, title, position, x, y_surf, edge):
-    px = len(x)
-    radi = x.max()
-    
-    y_ct, tilt_ct, idx_ct = tangent_line(x_arr, y_surf, m1_radi)
-    y_eg, tilt_eg, idx_eg = tangent_line(x_arr, y_surf, edge)
-    tilt_ct_mrad = str(round(tilt_ct * 1e6, 3))
-    tilt_eg_mrad = str(round(tilt_eg * 1e6, 3))
+def stick_plot(Fig, Title, Position, X, Z_surf, Edge, M1_radi):
+    Px = len(Z_surf)
+    Horizontal = np.linspace(-M1_radi, M1_radi, Px) # 地面に水平な面上での距離
+    Z_c, Tilt_c, Idx_c = tangent_line(Horizontal, Z_surf, M1_radi)
+    Z_e, Tilt_e, Idx_e = tangent_line(Horizontal, Z_surf, Edge)
+    Tilt_c_mrad = str(round(Tilt_c * 1e6, 3))
+    Tilt_e_mrad = str(round(Tilt_e * 1e6, 3))
 
     ## plot
-    ax = fig.add_subplot(position)
-    ax.plot(x[1:-1], y_surf[1:-1], linewidth=5, label="")
-    ax.plot(x, y_ct, label=tilt_ct_mrad + " [micro rad]")
-    ax.plot(x, y_eg, label=tilt_eg_mrad + " [micro rad]")
-    ax.scatter([x[idx_ct], x[idx_eg]], [y_surf[idx_ct], y_surf[idx_eg]], s=200, c="red", label="")
+    Ax = Fig.add_subplot(Position)
+    Ax.plot(X[1:-1], Z_surf[1:-1], linewidth=5, label="")
+    Ax.plot(X, Z_c, label=Tilt_c_mrad + " [micro rad]")
+    Ax.plot(X, Z_e, label=Tilt_e_mrad + " [micro rad]")
+    Ax.scatter([X[Idx_c], X[Idx_e]], [Z_surf[Idx_c], Z_surf[Idx_e]], s=200, c="red", label="")
     
-    ax.set_ylim(y_surf.min(), y_surf.max())
-    ax.set_ylabel
-    ax.legend()
-    return ax
-
-def table_plot(fig, title, position, data_list, col, row):
-    data_list = data_list.round(2).values
-    ax = fig.add_subplot(position)
-    ax.table(cellText = data_list,
-             cellLoc = "right",
-             colLabels = col,
-             colLoc = "center",
-             rowLabels = row,
-             rowLoc = "center")
-    ax.axis("off")
-    return ax
-
-def text_plot(fig, title, position, text_list):
-    row = len(text_list)
-    fs = 15
-    ax = fig.add_subplot(position)
-    height = np.arange(start=0.1, stop=0.2+0.1*row, step=0.1)
-    
-    for i in range(row):
-        ax.text(0.1, height[i], text_list[i], ha="left", fontsize=fs)
-    
-    ax.xaxis.set_ticklabels([])
-    ax.yaxis.set_ticklabels([])
-    ax.set_ylim(1,0)
-    return ax
+    Ax.set_title(Title)
+    Ax.set_ylim(Z_surf.min(), Z_surf.max())
+    Ax.set_ylabel
+    Ax.legend()
+    return Ax
 
 if __name__ == '__main__':
     px = 1025
@@ -175,14 +170,7 @@ if __name__ == '__main__':
     edge_length = 40 # フチから斜め鏡までの距離
     # fem では0.05Nm のトルク、実物の+-500は板バネ+-5mm相当、ばね定数5.78N/mm、腕の長さ0.25m
     
-    #WH番号　[0,1,6,7,12,13,18,19,24,25,30,31]+1 にはx37
-    #WH番号 [2,3,8,9,14,15,20,21,26,27,32,33]+1 にはx20
-    #WH番号 [4,10,16,22,28,34]+1 にはx-38
-    #WH番号　[5,11,17,23,29,35]+1 にはx38
-    act_tuning = np.array([ 37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,  20., -38.,
-        38.,  37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,  20.,
-       -38.,  38.,  37.,  37.,  20.,  20., -38.,  38.,  37.,  37.,  20.,
-        20., -38.,  38.])
+    act_tuning = make_act_tuning()
     
     fname_res = "mkfolder/ac0430read/210430/act01_36.csv"
     df_res = pd.read_csv(fname_res)
@@ -196,17 +184,17 @@ if __name__ == '__main__':
     df_cols = ["act", "para_e", "perp_e", "para_c", "perp_c"]
     df_res_fem = pd.DataFrame(index=[], columns=df_cols)
     
-    for i in range(0, len(df_res)):
-    #for i in range(0, 3):
-        act_num = "F" + str(df_res["act"][i]).zfill(2)
+    #for i in range(0, len(df_res)):
+    for i in range(0, 3):
+        act_num = "F" + str(int(df_res["act"][i])).zfill(2)
         print(act_num)
         
-        #fem は0.5Nm, モーター100step(1mm)への変換係数がact_tuning, 0423の計測は+-500stepなので更に10倍
-        fem2act = 5 * act_tuning[df_res["act"][i]-1]
+        #fem は0.5Nm, モーター100step(1mm)への変換係数がact_tuning
+        fem2act = 5 * act_tuning[int(df_res["act"][i]-1)]
     
         fname = "_Fxx/PM3.5_36ptAxWT06_" + act_num + ".smesh.txt"
         dfxx = read(fname)
-        diff =  tf * fem_interpolate(df0, dfxx)
+        diff =  tf * fem_interpolate(df0, dfxx, xx, yy)
         
         diff_rotate = rotation(diff, stick_angle, tf) * fem2act
         para_line = diff_rotate[round(px/2), :]
@@ -220,18 +208,6 @@ if __name__ == '__main__':
         
         
         ## for plot ------------------------------------------------------------
-        """
-        text = ["zwopx_center = " + str(zwopx_c.round(3)) + "[px]",
-                fname_res[-15:-4] + " = " + str(round(df_res["dvert_c"][i], 3)) + "[px]",
-                "",
-                "zwopx_edge = " + str(zwopx_e.round(3)) + " [px]",
-                fname_res[-15:-4] + " = " + str(round(df_res["dvert_l"][i], 3)) + "[px]",
-                "",
-                "zwopx_diff = " + str((zwopx_e-zwopx_c).round(3)) + " [px]",
-                fname_res[-15:-4] + " = " + str(round(df_res["dvert_l"][i]-df_res["dvert_c"][i], 3)) + "[px]",
-                ]
-        """
-        text=[]
         title_diff = "act" + act_num[1:] + " in FEM"
         title_rotate = "act" + act_num[1:] + " ( FEM x " + str(fem2act) + " ), " + str(stick_angle)+" deg"
         
@@ -242,12 +218,10 @@ if __name__ == '__main__':
         ax_rotate = ac.image_plot(fig, title_rotate, gs[1,0], diff_rotate, diff_rotate, 0, 100, "mm")
         ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
         ax_rotate.vlines([para_c[2], para_e[2]], 0, px-1, linewidth=3, colors="black")
-        #ax_table = table_plot(fig, "", gs[1,0], table_list, column_list, row_list)
-        ax_text = text_plot(fig, "", gs[0, 1], text)
-        ax_para = stick_plot(fig, "", gs[2, 0], x_arr, para_line, edge_length)
+        ax_para = stick_plot(fig, "", gs[2, 0], x_arr, para_line, edge_length, m1_radi)
         
-        ax_perp_c = stick_plot(fig, "", gs[1, 1], y_arr, perp_line_c, m1_radi)
-        ax_perp_e = stick_plot(fig, "", gs[2, 1], y_arr, perp_line_e, m1_radi)
+        ax_perp_c = stick_plot(fig, "", gs[1, 1], y_arr, perp_line_c, m1_radi, m1_radi)
+        ax_perp_e = stick_plot(fig, "", gs[2, 1], y_arr, perp_line_e, m1_radi, m1_radi)
         fig.tight_layout()
         
         picname = mkfolder() + "act_" + act_num + ".png"

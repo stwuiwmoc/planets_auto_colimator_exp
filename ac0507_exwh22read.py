@@ -4,7 +4,7 @@ Created on Tue May  4 13:55:36 2021
 
 @author: swimc
 
-0430のac実験用
+0507 ExWH22のac実験用
 """
 
 import ac0423read as ac
@@ -40,6 +40,7 @@ def mkfolder(Suffix = ""):
     return Folder
 
 if __name__ == '__main__':
+    start = time.time()
     px_v, px_h = 384, 512
     px_clip_width = 250 
     px_lim = 50
@@ -53,10 +54,9 @@ if __name__ == '__main__':
                "perp_c", "perp_c_eb",
                "e_std", "c_std", "noise"]
     
-    
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
-    folder_path = "raw_data/210430/**"
+    folder_path = "raw_data/210507/ExWH22/**"
     folder_list_raw = glob.glob(folder_path, recursive=False)
     
     
@@ -70,7 +70,6 @@ if __name__ == '__main__':
     のデータになっています。
     """
     folder_list = folder_list_raw[2:-2]
-    start = time.time()
     
     for i in range(36):
         act_num = str(i+1).zfill(2)
@@ -84,7 +83,8 @@ if __name__ == '__main__':
         data_noise = []
         data_noise_std = []
         
-        for j in range(2): # j=0 : +500 / j=1 : +000
+        
+        for j in range(2): # j=0 : +500 / j=1 : -500
             
             path_list = glob.glob(folder_list[int(i*2+j)]+"/*.FIT")
             data_mean_temp = np.zeros((px_v, px_h))
@@ -95,8 +95,8 @@ if __name__ == '__main__':
             
             ## 10回の撮像を平均し、edgeとcenterを切り出し --------------------------
             data_mean_temp = data_mean_temp / len(path_list)
-            data_e_temp = ac.data_clip(data_mean_temp, 50, 250, px_clip_width)
-            data_c_temp = ac.data_clip(data_mean_temp, 25, 50, px_clip_width)
+            data_e_temp = data_mean_temp[100:300, 250:450]
+            data_c_temp = data_mean_temp[50:300, 50:300]
             
             data_mean.append(data_mean_temp)
             data_e.append(data_e_temp)
@@ -104,6 +104,7 @@ if __name__ == '__main__':
             
             ## read out noise -----------------------------------------------
             data_noise_temp = np.zeros((px_v, px_h))
+            
             for path in path_list:
                 data = ac.fits_2darray(path)
                 data_noise_temp = data_noise_temp + (data -data_mean_temp)**2
@@ -119,7 +120,6 @@ if __name__ == '__main__':
         data_diff = data_mean[1] - data_mean[0]
         data_noise_std.append(np.sqrt(data_noise_std[0]**2+data_noise_std[1]**2))
         
-        
         ## minimize ----------------------------------------------------------
         param_e = ip_e + [subpx_lim]
         param_c = ip_c + [subpx_lim]
@@ -129,10 +129,9 @@ if __name__ == '__main__':
         
         diff_e = ac.displace(res_e["x"][0], res_e["x"][1], param_e)
         diff_c = ac.displace(res_c["x"][0], res_c["x"][1], param_c)
-
-        ## error_bar ---------------------------------------------------------
+       
         print(time.time()-start)
-        
+        ## error_bar ---------------------------------------------------------
         err_size, err_mgn = 20, 0.05
         x_err_e, y_err_e, eb_e_px = ac.error_xy_loop(res_e, param_e, err_size, err_mgn, data_noise_std[2])
         x_err_c, y_err_c, eb_c_px = ac.error_xy_loop(res_c, param_c, err_size, err_mgn, data_noise_std[2])
@@ -146,7 +145,7 @@ if __name__ == '__main__':
         record = np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.array([res_e["fun"], res_c["fun"], data_noise_std[2]])])
         
         df_res = df_res.append(pd.Series(record, index = df_res.columns), 
-                               ignore_index=True)    
+                               ignore_index=True)
 
         print(time.time()-start)
         
@@ -156,10 +155,10 @@ if __name__ == '__main__':
         fig.suptitle(folder_path[9:15] + " act" + act_num)
         
         ax_5 = ac.image_plot(fig, "+500", gs[0, 0], data_mean[0], data_mean[0])
-        ax_0 = ac.image_plot(fig, "+000", gs[0, 1], data_mean[1], data_mean[0])
-        ax_diff = ac.image_plot(fig, "diff {+500} - {+000}", gs[1,0:2], data_diff, data_diff)
-        ax_res_e = ac.image_plot(fig, "angle_e", gs[2,0], diff_e, data_diff)
-        ax_res_c = ac.image_plot(fig, "angle_c", gs[2,1], diff_c, data_diff)
+        ax_0 = ac.image_plot(fig, "-500", gs[0, 1], data_mean[1], data_mean[0])
+        ax_diff = ac.image_plot(fig, "diff {+500} - {-500}", gs[1,0:2], data_diff, data_diff)
+        ax_res_e = ac.image_plot(fig, angle_e, gs[2,0], diff_e, data_diff)
+        ax_res_c = ac.image_plot(fig, angle_c, gs[2,1], diff_c, data_diff)
         
         ax_err_xe = ac.err_plot(fig, "xe", gs[3, 0], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
         ax_err_ye = ac.err_plot(fig, "ye", gs[4, 0], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
@@ -170,9 +169,11 @@ if __name__ == '__main__':
         
         picname = mkfolder("/"+folder_path[9:15]) + "act" + act_num + ".png"
         fig.savefig(picname)
+        fig.clf()
     
     csvname = mkfolder("/"+folder_path[9:15]) + "act01_36.csv"
     if i == 1:
         pass
     else:    
         df_res.to_csv(csvname, index=False)
+    

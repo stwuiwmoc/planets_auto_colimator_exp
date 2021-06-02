@@ -14,11 +14,13 @@ import glob
 import scipy.signal
 import sys
 import pandas as pd
+import time
 
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-def mkfolder(suffix = ""):
+
+def mkfolder(Suffix = ""):
     import os
     """    
     Parameters
@@ -30,11 +32,12 @@ def mkfolder(suffix = ""):
     -------
     str ( script name + suffix )
     """
-    filename = os.path.basename(__file__)
-    filename = filename.replace(".py", "") + suffix
-    folder = "mkfolder/" + filename + "/" 
-    os.makedirs(folder, exist_ok = True)
-    return folder
+    Filename = os.path.basename(__file__)
+    Filename = Filename.replace(".py", "") + Suffix
+    Folder = "mkfolder/" + Filename + "/"
+    os.makedirs(Folder, exist_ok=True)
+    return Folder
+
 
 def fits_2darray(path):
     f = fits.open(path)
@@ -85,41 +88,47 @@ def fits_interpolate(array_2d, magnification):
     zz_new_nandrop = zz_new[:-magnification, :-magnification]
     return zz_new_nandrop
 
+
 def displace(Dx, Dy, Param):
     """
-    (Dx, Dy) で与えられたpx分 data_1 をずらし、差分とって標準偏差を計算
+    
 
     Parameters
     ----------
     Dx : int
-        x方向にずらすpx数を指定
+        subpx
     Dy : int
-        y方向にずらすpx数を指定
-    Param : list
-        list [data_list, magnification, dlim]
+        subpx
+    Param : TYPE
+        DESCRIPTION.
 
     Returns
     -------
-    std : float
-        ずらす前後の差分についての標準偏差
+    Diff : TYPE
+        2d_array
+
     """
-    Dx = np.round(Dx)
-    Dy = np.round(Dy)
-    Data = Param[0]
-    Magnification = Param[1]
-    Dlim = Param[2]
+    Dx = int(np.round(Dx))
+    Dy = int(np.round(Dy))
+    Data_0 = Param[0]
+    Data_1 = Param[1]
+    Subpx_lim = Param[2]
     
-    Data_0 = Data[0]
-    Data_1 = Data[1]
+    if abs(Dx) > Subpx_lim:
+        Dx = Subpx_lim
+    if abs(Dy) > Subpx_lim:
+        Dy = Subpx_lim
     
-    ## ずらした部分にnp.nanが入らないように、ずらす最大値の分だけ周りを切り取る
-    S0x = S0y = slice( int(Dlim), int(len(Data_0)-(Dlim+Magnification)) )
-    ## dx, dyずらす を dx, dyずらして切り出す で対応
-    S1x = slice( int(Dlim+Dx), int(len(Data_0)+Dx-(Dlim+Magnification)) )
-    S1y = slice( int(Dlim+Dy), int(len(Data_0)+Dy-(Dlim+Magnification)) )
+    S0min = Subpx_lim
+    S0max = int(len(Data_0) - Subpx_lim) 
     
-    Cut_0 = Data_0[S0x, S0y]
-    Cut_1 = Data_1[S1x, S1y]
+    S1xmin = int(S0min - Dx)
+    S1xmax = int(S0max - Dx)
+    S1ymin = int(S0min - Dy)
+    S1ymax = int(S0max - Dy)
+    
+    Cut_0 = Data_0[S0min:S0max, S0min:S0max]
+    Cut_1 = Data_1[S1xmin:S1xmax, S1ymin:S1ymax]
     Diff = Cut_1 - Cut_0
     return Diff
 
@@ -143,100 +152,23 @@ def std_func(X, param):
     std = np.std(diff)
     return std
 
-def error_x_func(X, Param_res):
-    """
-    paramで与えられた y は固定で、Xをずらして標準偏差を計算
-
-    Parameters
-    ----------
-    X : float (not tuple)
-        x方向にずらすpx数を指定
-    Param_res : list [[data_list, magnification, dlim], OptimizeResult, sigma_mgn]
-        sigma_mgnは標準偏差に対するエラーバーの長さ
-
-    Returns
-    -------
-    Std : TYPE
-        DESCRIPTION.
-
-    """
+def error_xy_loop(OptimizeResult, Param, Err_size, Err_mgn, Std_noise):
+    Xopt, Yopt = OptimizeResult["x"]
+    Std_opt = OptimizeResult["fun"]
+    Xerr = np.empty(Err_size)
+    Yerr = np.empty(Err_size)
+    for i in range(Err_size):
+        Xi = Xopt + i - Err_size/2
+        Yi = Yopt + i - Err_size/2
+        Xerr[i] = np.std(displace(Xi, Yopt, Param))
+        Yerr[i] = np.std(displace(Xopt, Yi, Param))
     
-    Param = Param_res[0]
-    Opresult = Param_res[1]
-    Sigma_mgn = Param_res[2]
+    Threshold = Std_opt + (Std_opt - Std_noise) * Err_mgn
+    Xeb = np.sum(np.where(Xerr<Threshold, 1, 0))
+    Yeb = np.sum(np.where(Yerr<Threshold, 1, 0))
+    Result = np.array([Xopt, Xeb, Yopt, Yeb])
     
-    Diff = displace(X, Opresult["x"][1], Param)
-    Std = np.std(Diff)
-    Result = abs( Std - Sigma_mgn * Opresult["fun"])
-    return Result
-
-def error_y_func(Y, Param_res):
-    Param = Param_res[0]
-    Opresult = Param_res[1]
-    Sigma_mgn = Param_res[2]
-    Diff = displace(Opresult["x"][0], Y, Param)
-    Std = np.std(Diff)
-    Result = abs( Std - Sigma_mgn * Opresult["fun"])
-    return Result
-
-def error_bar_bounds(Param, OptimizeResult, Sigma_mgn):
-    """
-    x, yについて error barの最大値と最小値を、制約付き最小化で求めるためのラッパー
-    OptimizeResultで求めた標準偏差の最小値 ["fun"] に対して、 fun*sigma_mgn を閾値として、標準偏差がfun*sigma_mgnまでの範囲をエラーバーとする
-    例） OptimizeResult["fun"] = 796, OptimizeResult["x"] = (4.9, -67.7), Sigma_mgn = 2であるとき
-    x方向のエラーバー -> y=-67.7に固定して fun = 796*2 になる x を探す
-    この時、エラーバーには上限と下限があるので、x を探す範囲に x > 4.9 or x < 4.9 の制約をつけてそれぞれについて fun = 796*2 を探す
-    
-    Parameters
-    ----------
-    Param : list [data_list, magnification, dlim]
-        DESCRIPTION.
-    OptimizeResult : Object
-        DESCRIPTION.
-    Sigma_mgn : float
-        標準偏差に対するエラーバーの長さの計算用、標準偏差 * sigma_mgnがエラーバーの幅を決定
-
-    Returns
-    -------
-    Result : list [x下限側eb長さ, x最小値, x上限側eb長さ,
-                   y下限側eb長さ, y最小値, y上限側eb長さ]
-        x : parallel方向, y : perpendicular方向
-        "最小値"は、inputの OptimizeResultで計算済みの、"fun"を最小にするような x ,y
-    """
-    
-    Param_res = [Param, OptimizeResult, Sigma_mgn]
-    
-    Xmin = sp.optimize.minimize(fun = error_x_func,
-                                x0 = ( OptimizeResult["x"][0] - 2 ), 
-                                args = (Param_res),
-                                constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][0] ) },
-                                method = "COBYLA")
- 
-    Xmax = sp.optimize.minimize(fun = error_x_func, 
-                                x0 = ( OptimizeResult["x"][0] + 2 ), 
-                                args = (Param_res),
-                                constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][0] ) },
-                                method = "COBYLA")
-    
-    Ymin = sp.optimize.minimize(fun = error_y_func,
-                                x0 = ( OptimizeResult["x"][1] - 2 ), 
-                                args = (Param_res),
-                                constraints = {"type" : "ineq", "fun" : lambda x: - ( x - OptimizeResult["x"][1] ) },
-                                method = "COBYLA")
-        
-    Ymax = sp.optimize.minimize(fun = error_y_func, 
-                                x0 = ( OptimizeResult["x"][1] + 2 ), 
-                                args = (Param_res),
-                                constraints = {"type" : "ineq", "fun" : lambda x: + ( x - OptimizeResult["x"][1] ) },
-                                method = "COBYLA")
-    
-    X_mindiff = OptimizeResult["x"][0] - Xmin["x"]
-    X_maxdiff = Xmax["x"] - OptimizeResult["x"][0]
-    Y_mindiff = OptimizeResult["x"][1] - Ymin["x"]
-    Y_maxdiff = Ymax["x"] - OptimizeResult["x"][1]
-    
-    Result = np.stack([X_mindiff, OptimizeResult["x"][0], X_maxdiff, Y_mindiff, OptimizeResult["x"][1], Y_maxdiff])
-    return Result
+    return Xerr, Yerr, Result
 
 def subpx2urad(Subpx):
     """
@@ -311,24 +243,43 @@ def image_plot(fig, title, position, c, c_scale, min_per=0, max_per=100, cbar_ti
         
     return ax
 
-if __name__ == '__main__':
+def err_plot(Fig, Title, Position, Xopt, Yarr, Std_opt, Std_noise, Err_mgn):
+    Size = len(Yarr)
+    Xmin = Xopt - Size/2
+    Xmax = Xopt + Size/2
+    Xarr = subpx2urad(np.linspace(Xmin, Xmax, num=Size))
+    Threshold_eb = Std_opt + (Std_opt - Std_noise) * Err_mgn
+    Threshold_ymax = Std_opt + (Std_opt - Std_noise) * 0.5
     
+    Ax = Fig.add_subplot(Position)
+    Ax.plot(Xarr, Yarr)
+    Ax.set_xlabel("[urad]")
+    Ax.set_ylim(Yarr.min(), Threshold_ymax)
+    Ax.set_title(Title)
+    
+    Ax.vlines(subpx2urad(Xopt), Yarr.min(), Yarr.max())
+    Ax.hlines(Threshold_eb, Xarr.min(), Xarr.max())
+    
+    return Ax
+
+if __name__ == '__main__':
+    start = time.time()
     name = ["-500", "+500"]
     px_v, px_h = 384, 512
     px_clip_width = 250 # 切り出すpx幅
-    px_lim = 300
+    px_lim = 50
     mgn = 10 # magnification subpixelまで細かくする時の、データ数の倍率
-    subpx_lim = px_lim * mgn
+    subpx_lim = int(px_lim * mgn)
     
-    #act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
-    act_list = ["17"]
+    act_list = ["06", "07", "08", "09", "10", "11", "13", "14", "15", "16", "17", "19", "20", "21", "22"]
+    #act_list = ["17"]
     
     df_cols = ["act",
                "para_e_ebmin", "para_e", "para_e_ebmax",
                "perp_e_ebmin", "perp_e", "perp_e_ebmax", 
                "para_c_ebmin", "para_c", "para_c_ebmax", 
                "perp_c_ebmin", "perp_c", "perp_c_ebmax",
-               "e_std", "c_std"]
+               "e_std", "c_std", "noise"]
     
     df_res = pd.DataFrame(index=[], columns=df_cols)
     
@@ -337,6 +288,8 @@ if __name__ == '__main__':
         data_mean = []
         data_e = []
         data_c = []
+        data_noise = []
+        data_noise_std = []
         
         for i in range(0, 2):
             folder_path = "raw_data/210423/ex10_act" + act_num + "_" + name[i] + "/*.FIT"
@@ -347,13 +300,14 @@ if __name__ == '__main__':
                 print("path_list is empty!")
                 sys.exit()
             
-            data_mean_temp = np.empty((px_v, px_h))
+            data_mean_temp = np.zeros((px_v, px_h))
             
             for path in path_list:
                 data = fits_2darray(path)
                 data_mean_temp = data + data_mean_temp
             
             data_mean_temp = data_mean_temp / len(path_list)
+            
             data_e_temp = data_clip(data_mean_temp, 50, 200, px_clip_width)
             data_c_temp = data_clip(data_mean_temp, 75, 0, px_clip_width)
             
@@ -361,7 +315,18 @@ if __name__ == '__main__':
             data_e.append(data_e_temp)
             data_c.append(data_c_temp)
             
+            ## read out noise -----------------------------------------------
+            data_noise_temp = np.zeros((px_v, px_h))
+            for path in path_list:
+                data = fits_2darray(path)
+                data_noise_temp = data_noise_temp + (data -data_mean_temp)**2
             
+            data_noise_temp = np.sqrt( data_noise_temp / len(path_list) )
+            data_noise.append(data_noise_temp)
+            data_noise_std.append(np.std(data_noise_temp))
+        
+        data_noise_std.append(np.sqrt(data_noise_std[0]**2+data_noise_std[1]**2))
+        
         ## interpolate ---------------------------------------------------------------  
         ip_e = [fits_interpolate(data_e[0], mgn), fits_interpolate(data_e[1], mgn)]
         ip_c = [fits_interpolate(data_c[0], mgn), fits_interpolate(data_c[1], mgn)]
@@ -369,40 +334,59 @@ if __name__ == '__main__':
         data_diff = data_mean[1] - data_mean[0]
         
         ## minimize ----------------------------------------------------------------
-        param_e = [ip_e, mgn, px_lim]
-        res_e = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_e,), method="Powell")
-        diff_e = displace(res_e["x"][0], res_e["x"][1], param_e)
+        param_e = ip_e + [subpx_lim]
+        param_c = ip_c + [subpx_lim]
         
-        param_c = [ip_c, mgn, px_lim]
-        res_c = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_c,), method="Powell")
+        res_e = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_e), method="Powell") 
+        res_c = sp.optimize.minimize(fun=std_func, x0=(0,0), args=(param_c), method="Powell")        
+       
+        diff_e = displace(res_e["x"][0], res_e["x"][1], param_e)
         diff_c = displace(res_c["x"][0], res_c["x"][1], param_c)
+        print(time.time() - start)
+        
         ## error_bar ------------------------------------------------------------
         
-        eb_c_px = error_bar_bounds(param_c, res_c, 1.5)
-        eb_e_px = error_bar_bounds(param_e, res_e, 1.5)
-        eb_c_urad = subpx2urad(eb_c_px)
+        err_size, err_mgn = 20, 0.05
+        x_err_e, y_err_e, eb_e_px = error_xy_loop(res_e, param_e, err_size, err_mgn, data_noise_std[2])
+        x_err_c, y_err_c, eb_c_px = error_xy_loop(res_c, param_c, err_size, err_mgn, data_noise_std[2])
+        
         eb_e_urad = subpx2urad(eb_e_px)
-        angle_c = urad2title(eb_c_urad[1], eb_c_urad[4])
-        angle_e = urad2title(eb_e_urad[1], eb_e_urad[4])
-    
+        eb_c_urad = subpx2urad(eb_c_px)
+
+        angle_e = urad2title(eb_e_urad[0], eb_e_urad[2])
+        angle_c = urad2title(eb_c_urad[0], eb_c_urad[2])
+
+        record = np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.array([res_e["fun"], res_c["fun"], data_noise_std[2]])])
+        
+        df_res = df_res.append(pd.Series(record, index = df_res.columns), 
+                               ignore_index=True)    
+
+        print(time.time()-start)
+        
         ## for plot --------------------------------------------------------------
         fig = plt.figure(figsize=(10,15))
-        gs = fig.add_gridspec(3,2)
+        gs = fig.add_gridspec(5,2)
         fig.suptitle(folder_path[9:15] + " act" + act_num)
         
         ax_5 = image_plot(fig, "-500", gs[0, 0], data_mean[0], data_mean[0])
         ax_0 = image_plot(fig, "+500", gs[0, 1], data_mean[1], data_mean[0])
-        ax_diff = image_plot(fig, "diff {-500} - {+500}", gs[1,0:2], data_diff, data_diff)
-        ax_res_e = image_plot(fig, angle_e, gs[2,0], diff_e, data_diff)
-        ax_res_c = image_plot(fig, angle_c, gs[2,1], diff_c, data_diff)
+        ax_diff = image_plot(fig, "diff {+500} - {-500}", gs[1,0:2], data_diff, data_diff)
+        ax_res_e = image_plot(fig, angle_e, gs[2,1], diff_e, data_diff)
+        ax_res_c = image_plot(fig, angle_c, gs[2,0], diff_c, data_diff)
+        
+        ax_err_xe = err_plot(fig, "xe", gs[3, 0], res_e["x"][0], x_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_ye = err_plot(fig, "ye", gs[4, 0], res_e["x"][1], y_err_e, res_e["fun"], data_noise_std[2], err_mgn)
+        ax_err_xc = err_plot(fig, "xc", gs[3, 1], res_e["x"][0], x_err_c, res_c["fun"], data_noise_std[2], err_mgn)
+        ax_err_yc = err_plot(fig, "yc", gs[4, 1], res_e["x"][1], y_err_c, res_c["fun"], data_noise_std[2], err_mgn)
         
         fig.tight_layout()
         
         picname = mkfolder("/"+folder_path[9:15]) + folder_path[16:26] + "_" + name[0] + "_" + name[1] + ".png"
         fig.savefig(picname)
     
-        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.atleast_1d(res_e["fun"]), np.atleast_1d(res_c["fun"])]),
+        record = pd.Series(np.concatenate([np.atleast_1d(int(act_num)), eb_e_urad, eb_c_urad, np.array([res_e["fun"], res_c["fun"], data_noise_std[2]])]),
                            index = df_res.columns)
         
         df_res = df_res.append(record, ignore_index=True)
+        
     df_res.to_csv(mkfolder("/"+folder_path[9:15])+folder_path[16:20]+".csv")
