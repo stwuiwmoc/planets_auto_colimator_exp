@@ -69,7 +69,8 @@ def make_set():
     Pattern1 = np.empty(36)
     for Idx in range(36):
         Num = Idx + 1
-        if Num == 5 or Num == 11 or Num == 17 or Num == 23 or Num == 29 or Num == 35:
+        if Num in [5, 17, 29, 
+                   11, 23, 35]:
             Pattern1[Idx] = 1
         else:
             Pattern1[Idx] = 0
@@ -77,7 +78,8 @@ def make_set():
     Pattern2 = np.empty(36)
     for Idx in range(36):
         Num = Idx + 1
-        if Num == 3 or Num == 4 or Num == 15 or Num == 16 or Num == 27 or Num == 28:
+        if Num in [3, 9, 15, 21, 27, 33,
+                   4, 10, 16, 22, 28, 34]:
             Pattern2[Idx] = 1
         else:
             Pattern2[Idx] = 0
@@ -85,9 +87,11 @@ def make_set():
     Pattern3 = np.empty(36)
     for Idx in range(36):
         Num = Idx + 1
-        if Num == 3 or Num == 4 or Num == 15 or Num == 16 or Num == 27 or Num == 28:
+        if Num in [3, 9, 15, 21, 27, 33,
+                   4, 10, 16, 22, 28, 34]:
             Pattern3[Idx] = 1
-        elif Num == 5 or Num == 11 or Num == 17 or Num == 23 or Num == 29 or Num == 35:
+        elif Num in [5, 17, 29,
+                     11, 23, 35]:
             Pattern3[Idx] = -1
         else:
             Pattern3[Idx] = 0
@@ -147,8 +151,8 @@ if __name__ == '__main__':
         
         title_rotate = str(stick_angle) + "[deg]"
         
-        ax_diff = ac.image_plot(fig, "", gs[0,0], diff_sum, diff_sum, 0, 100, "mm")
-        ax_rotate = ac.image_plot(fig, "", gs[1,0], diff_rotate, diff_rotate, 0, 100, "mm")
+        ax_diff = ac.image_plot(fig, "", gs[0,0], diff_sum, diff_sum, 22, 100, "mm")
+        ax_rotate = ac.image_plot(fig, "", gs[1,0], diff_rotate, diff_rotate, 22, 100, "mm")
         ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
         ax_rotate.vlines([para_c[2], para_e[2]], 0, px-1, linewidth=3, colors="black")
         ax_para = spa.stick_plot(fig, "", gs[2, 0], x_arr, para_line, edge_length, m1_radi)

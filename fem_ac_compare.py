@@ -56,7 +56,7 @@ def act_plot(Fig, Title, Position, Black=False, Blue=False, Red=False, Orange=Fa
     Ax.set_xlabel("Act01 ~ Act36")
     Ax.grid(axis="y")
     return Ax
-        
+
 
 if __name__ == '__main__':
     #fname_ac = "mkfolder/fits_correlation/210423/ex10.csv"
