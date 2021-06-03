@@ -71,7 +71,7 @@ if __name__ == '__main__':
     """
     folder_list = folder_list_raw[2:-2]
     
-    for i in range(1):
+    for i in range(36):
         act_num = str(i+1).zfill(2)
         print(act_num)
         
