@@ -145,21 +145,25 @@ def calc_zwopx(tilt_rad):
 def stick_plot(Fig, Title, Position, X, Z_surf, Edge, M1_radi):
     Px = len(Z_surf)
     Horizontal = np.linspace(-M1_radi, M1_radi, Px) # 地面に水平な面上での距離
-    Z_c, Tilt_c, Idx_c = tangent_line(Horizontal, Z_surf, M1_radi)
-    Z_e, Tilt_e, Idx_e = tangent_line(Horizontal, Z_surf, Edge)
-    Tilt_c_mrad = str(round(Tilt_c * 1e6, 3))
-    Tilt_e_mrad = str(round(Tilt_e * 1e6, 3))
-
+    Z_c, Tilt_c_mrad, Idx_c = tangent_line(Horizontal, Z_surf, M1_radi)
+    Z_e, Tilt_e_mrad, Idx_e = tangent_line(Horizontal, Z_surf, Edge)
+    
+    Tilt_c_str = str(round(Tilt_c_mrad, 2))
+    Tilt_e_str = str(round(Tilt_e_mrad, 2))
+    
+    Z_surf_drop = np.where(Z_surf==0, np.nan, Z_surf)
+    
     ## plot
     Ax = Fig.add_subplot(Position)
-    Ax.plot(X[1:-1], Z_surf[1:-1], linewidth=5, label="")
-    Ax.plot(X, Z_c, label=Tilt_c_mrad + " [micro rad]")
-    Ax.plot(X, Z_e, label=Tilt_e_mrad + " [micro rad]")
+    Ax.plot(X, Z_surf_drop, linewidth=5, label="")
+    Ax.plot(X, Z_c, label=Tilt_c_str + " [micro rad]")
+    Ax.plot(X, Z_e, label=Tilt_e_str + " [micro rad]")
     Ax.scatter([X[Idx_c], X[Idx_e]], [Z_surf[Idx_c], Z_surf[Idx_e]], s=200, c="red", label="")
     
     Ax.set_title(Title)
+    #Ax.set_ylim(np.nanmin(Z_surf_drop), np.nanmax(Z_surf_drop))
     Ax.set_ylim(Z_surf.min(), Z_surf.max())
-    Ax.set_ylabel
+    Ax.set_ylabel("Surfaace figure z [mm]")
     Ax.legend()
     return Ax
 
@@ -184,8 +188,8 @@ if __name__ == '__main__':
     df_cols = ["act", "para_e", "perp_e", "para_c", "perp_c"]
     df_res_fem = pd.DataFrame(index=[], columns=df_cols)
     
-    #for i in range(0, len(df_res)):
-    for i in range(0, 3):
+    for i in range(0, len(df_res)):
+    #for i in range(0, 3):
         act_num = "F" + str(int(df_res["act"][i])).zfill(2)
         print(act_num)
         
@@ -214,14 +218,14 @@ if __name__ == '__main__':
         fig = plt.figure(figsize=(10,15))
         gs = fig.add_gridspec(3,2)
         
-        ax_diff = ac.image_plot(fig, title_diff, gs[0,0], diff, diff, 0, 100, "mm")
-        ax_rotate = ac.image_plot(fig, title_rotate, gs[1,0], diff_rotate, diff_rotate, 0, 100, "mm")
+        ax_diff = ac.image_plot(fig, title_diff, gs[0,0], diff, diff, 0, 100, "Surfaace figure z [mm]")
+        ax_rotate = ac.image_plot(fig, title_rotate, gs[1,0], diff_rotate, diff_rotate, 0, 100, "Surfaace figure z [mm]")
         ax_rotate.hlines(round(px/2), 0, px-1, linewidth=5, colors = "white")
         ax_rotate.vlines([para_c[2], para_e[2]], 0, px-1, linewidth=3, colors="black")
-        ax_para = stick_plot(fig, "", gs[2, 0], x_arr, para_line, edge_length, m1_radi)
+        ax_para = stick_plot(fig, "Parallel to Optical path", gs[2, 0], x_arr, para_line, edge_length, m1_radi)
         
-        ax_perp_c = stick_plot(fig, "", gs[1, 1], y_arr, perp_line_c, m1_radi, m1_radi)
-        ax_perp_e = stick_plot(fig, "", gs[2, 1], y_arr, perp_line_e, m1_radi, m1_radi)
+        ax_perp_c = stick_plot(fig, "Perpendicular in Optical path in Center", gs[1, 1], y_arr, perp_line_c, m1_radi, m1_radi)
+        ax_perp_e = stick_plot(fig, "Perpendicular in Optical path in Edge", gs[2, 1], y_arr, perp_line_e, m1_radi, m1_radi)
         fig.tight_layout()
         
         picname = mkfolder() + "act_" + act_num + ".png"
